@@ -1,0 +1,16 @@
+build/*
+input/*
+input/data/*
+output.json/
+output.parquet
+.gradle/
+docs/*
+out/*
+**/build/**
+**/.gradle/**
+**/gradle/**
+**/.idea
+.git
+.gitignore
+.gradle
+.idea

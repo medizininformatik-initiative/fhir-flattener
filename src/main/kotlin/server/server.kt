@@ -1,0 +1,191 @@
+package server
+
+import au.csiro.pathling.library.PathlingContext
+import io.ktor.http.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.routing.post
+import kotlinx.serialization.json.*
+import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.SaveMode
+import toFhirView
+import viewdefinition.ViewDefinition
+import java.io.*
+import java.util.*
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+
+val contentType = ContentType("application", "fhir+json")
+
+val capabilityStatement = buildJsonObject {
+    put("resourceType", "CapabilityStatement")
+    put("status", "active")
+    put("date", "2023-07-13T10:00:00Z")
+    put("publisher", "SQL on FHIR")
+    put("kind", "instance")
+    put("fhirVersion", "4.0.1")
+    put("format", JsonArray(listOf(JsonPrimitive("application/fhir+json"))))
+    put(
+        "rest",
+        JsonArray(listOf(buildJsonObject {
+            put("mode", "server")
+            put(
+                "operation", JsonArray(
+                    listOf(
+                        buildJsonObject {
+                            put("name", "\$export")
+                            put(
+                                "definition",
+                                "http://sql-on-fhir.org/OperationDefinition/\$export"
+                            )
+                        },
+                        buildJsonObject {
+                            put("name", "\$validate")
+                            put(
+                                "definition",
+                                "http://sql-on-fhir.org/OperationDefinition/\$validate"
+                            )
+                        },
+                        buildJsonObject {
+                            put("name", "\$run")
+                            put(
+                                "definition",
+                                "http://sql-on-fhir.org/OperationDefinition/\$run"
+                            )
+                        }
+                    )))
+        }))
+    )
+}
+
+fun main() {
+    embeddedServer(Netty, port = 8000) {
+        routing {
+            get("/") {
+                call.respondText("Hello from pathling-goes-mii! Please check GET /fhir/metadata or POST /fhir/ViewDefinition/\$run")
+            }
+            route("/fhir/") {
+                get("/metadata") {
+                    call.respondText(capabilityStatement.toString(), contentType, HttpStatusCode.OK)
+                }
+                get("/ViewDefinition/{id}/\$run") {
+                    val outputFormat = getOutputFormat(call.request.queryParameters["_format"], call.request.accept())
+                    call.respondText("Not Implemented!")
+                }
+                post("/ViewDefinition/\$run") {
+                    val parameters = Json.decodeFromString<viewdefinition.Parameters>(call.receiveText())
+
+                    val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
+
+
+                    require(parameters["viewReference"] == null) { "viewReference is not supported" }
+
+                    val viewDefJson =
+                        parameters["viewDefinition"]?.resource ?: error("No ViewDefinition resource provided!")
+
+                    val resource = parameters.getAsList("resources").map { it.resource }
+                    require(resource.isEmpty()) { "Providing resources directly not yet supported" }
+
+                    require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
+                    require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
+                    require(parameters["group"] == null) { "Providing group filter not (yet) supported" }
+                    require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
+                    require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
+
+                    val viewDefinition = Json.decodeFromJsonElement<ViewDefinition>(viewDefJson)
+
+                    val inputStream = executeViewDefinition(viewDefinition, outputFormat)
+
+                    call.respond(inputStream)
+                }
+                //TODO: Add OperationOutcome for all missing routes
+            }
+        }
+    }.start(wait = true)
+}
+
+private fun Route.post(string: String, function: () -> Unit) {}
+
+private fun getOutputFormat(_format: String?, acceptHeader: String?): OutputFormat {
+    if (_format != null) {
+        return when (_format) {
+            "json" -> OutputFormat.Json
+            "ndjson" -> OutputFormat.Ndjson
+            "csv" -> OutputFormat.Csv
+            "parquet" -> OutputFormat.Parquet
+            else -> error("Unsupported _format '$_format'!")
+        }
+    }
+    if (acceptHeader != null) {
+        return when (acceptHeader) {
+            "application/json" -> OutputFormat.Json
+            "application/x-ndjson" -> OutputFormat.Ndjson
+            "text/csv" -> OutputFormat.Csv
+            "application/octet-stream" -> OutputFormat.Parquet
+            else -> error("Unsupported accept header '$acceptHeader'!")
+        }
+    }
+
+    return OutputFormat.Csv
+}
+
+enum class OutputFormat { Json, Ndjson, Csv, Parquet }
+
+
+@OptIn(ExperimentalUuidApi::class)
+private fun executeViewDefinition(viewDefinition: ViewDefinition, outputFormat: OutputFormat): InputStream {
+    val uuid = Uuid.random().toString()
+
+    val pc = PathlingContext.create()
+    val data = pc.read().ndjson("input/data")
+    val result: Dataset<Row?> = data.view(viewDefinition.toFhirView()).execute()
+
+    val path = "output/$uuid"
+    val resultStream = when (outputFormat) {
+        OutputFormat.Json -> {
+            result.write().mode(SaveMode.Overwrite).json(path)
+            val result: MutableList<InputStream> = File("output/$uuid").listFiles { _, name ->
+                name.endsWith(".json", ignoreCase = true)
+            }.map { file -> NewlineToCommaInputStream(file.inputStream()) }.toMutableList()
+            val start = ByteArrayInputStream(byteArrayOf('['.code.toByte()))
+            val end = ByteArrayInputStream(byteArrayOf(']'.code.toByte()))
+            result[result.size - 1] = TrimLastByteInputStream(result[result.size - 1])
+            SequenceInputStream(Vector(listOf(start) + result + listOf(end)).elements())
+        }
+
+        OutputFormat.Ndjson -> {
+            result.write().mode(SaveMode.Overwrite).json(path)
+            val result = File("output/$uuid").listFiles { _, name ->
+                name.endsWith(".json", ignoreCase = true)
+            }.asSequence().map { file -> file.inputStream() }
+            SequenceInputStream(Vector(result.toList()).elements())
+        }
+
+        OutputFormat.Csv -> {
+            result.write().mode(SaveMode.Overwrite).csv(path)
+
+            val result = File("output/$uuid").listFiles { _, name ->
+                name.endsWith(".csv", ignoreCase = true)
+            }.asSequence().map { file -> file.inputStream() }
+            SequenceInputStream(Vector(result.toList()).elements())
+        }
+
+        OutputFormat.Parquet -> {
+            result.repartition(1).write().mode(SaveMode.Overwrite).parquet("$path/result.parquet")
+            val resultFile = File("output/$uuid").listFiles { _, name -> name.endsWith(".parquet") }.single()
+            println("resultFile = $resultFile")
+            resultFile.inputStream()
+        }
+    }
+
+    File("output/$uuid").deleteRecursively()
+
+    return resultStream
+
+}
+
+

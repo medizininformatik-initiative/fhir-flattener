@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    container_name: pathling-goes-mii
+    volumes:
+      - ./input:/app/input
+      - ./output:/app/output
+    working_dir: /app
+    ports:
+      - "8000:8000"
+
