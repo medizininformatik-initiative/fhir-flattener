@@ -2,33 +2,41 @@ package server
 
 import au.csiro.pathling.library.PathlingContext
 import io.ktor.http.*
+import io.ktor.server.application.ApplicationStopping
+import io.ktor.server.application.install
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.routing.post
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.serialization.json.*
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SaveMode
+import org.joda.time.LocalDateTime
 import toFhirView
+import viewdefinition.Parameter
+import viewdefinition.Parameters
 import viewdefinition.ViewDefinition
 import java.io.*
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-val contentType = ContentType("application", "fhir+json")
+private val contentType = ContentType("application", "fhir+json")
 
-val capabilityStatement = buildJsonObject {
+private val capabilityStatement = buildJsonObject {
     put("resourceType", "CapabilityStatement")
     put("status", "active")
-    put("date", "2023-07-13T10:00:00Z")
+    put("date", LocalDateTime.now().toString())
     put("publisher", "SQL on FHIR")
     put("kind", "instance")
     put("fhirVersion", "4.0.1")
-    put("format", JsonArray(listOf(JsonPrimitive("application/fhir+json"))))
+    put("format", JsonArray(listOf(JsonPrimitive(contentType.toString()))))
     put(
         "rest",
         JsonArray(listOf(buildJsonObject {
@@ -38,32 +46,73 @@ val capabilityStatement = buildJsonObject {
                     listOf(
                         buildJsonObject {
                             put("name", "\$export")
-                            put(
-                                "definition",
-                                "http://sql-on-fhir.org/OperationDefinition/\$export"
-                            )
+                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$export")
                         },
                         buildJsonObject {
                             put("name", "\$validate")
-                            put(
-                                "definition",
-                                "http://sql-on-fhir.org/OperationDefinition/\$validate"
-                            )
+                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$validate")
                         },
                         buildJsonObject {
                             put("name", "\$run")
-                            put(
-                                "definition",
-                                "http://sql-on-fhir.org/OperationDefinition/\$run"
-                            )
+                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$run")
                         }
                     )))
         }))
     )
 }
 
+class FhirException(val severity: FhirSeverity, val code: String, val exception: Throwable? = null): Throwable(exception) {
+    fun toOperationOutcome(): JsonObject {
+        return buildJsonObject {
+            put("resourceType", "OperationOutcome")
+            putJsonArray("issue") {
+                addJsonObject {
+                    put("severity", severity.toString().lowercase())
+                    put("code", code)
+                    put("diagnostics", exception.toString()+"\n\n"+exception?.stackTraceToString())
+                }
+            }
+        }
+    }
+}
+
+enum class FhirSeverity { FATAL, ERROR, WARNING, INFORMATION, DEBUG }
+
+@OptIn(ExperimentalUuidApi::class)
 fun main() {
     embeddedServer(Netty, port = 8000) {
+        monitor.subscribe(ApplicationStopping) {
+            val tempDir = File("output/")
+            if (tempDir.exists()) {
+                tempDir.listFiles()?.forEach { file ->
+                    file.deleteRecursively()
+                }
+            }
+        }
+
+        install(StatusPages) {
+            exception<FhirException> { call, cause ->
+                call.respondText(contentType, HttpStatusCode.InternalServerError) {
+                        cause.toOperationOutcome().toString()
+                }
+            }
+
+            exception<Throwable> { call, cause ->
+                call.respondText(contentType, HttpStatusCode.InternalServerError) {
+                    buildJsonObject {
+                        put("resourceType", "OperationOutcome")
+                        putJsonArray("issue") {
+                            addJsonObject {
+                                put("severity", "error")
+                                put("code", "processing")
+                                put("diagnostics", cause.toString()+"\n\n"+cause.stackTraceToString())
+                            }
+                        }
+                    }.toString()
+                }
+            }
+        }
+
         routing {
             get("/") {
                 call.respondText("Hello from pathling-goes-mii! Please check GET /fhir/metadata or POST /fhir/ViewDefinition/\$run")
@@ -77,18 +126,17 @@ fun main() {
                     call.respondText("Not Implemented!")
                 }
                 post("/ViewDefinition/\$run") {
-                    val parameters = Json.decodeFromString<viewdefinition.Parameters>(call.receiveText())
+                    val parameters = Json.decodeFromString<Parameters>(call.receiveText())
 
                     val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
 
 
-                    require(parameters["viewReference"] == null) { "viewReference is not supported" }
+                    val viewDefinition = getViewDefinitionFromParameters(parameters)
 
-                    val viewDefJson =
-                        parameters["viewDefinition"]?.resource ?: error("No ViewDefinition resource provided!")
-
-                    val resource = parameters.getAsList("resources").map { it.resource }
-                    require(resource.isEmpty()) { "Providing resources directly not yet supported" }
+                    val resource = parameters.getAsList("resources").mapIndexed { idx, it ->
+                        it.resource ?: error("No resource provided at $idx!")
+                    }
+                    //require(resource.isEmpty()) { "Providing resources directly not yet supported" }
 
                     require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
                     require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
@@ -96,16 +144,84 @@ fun main() {
                     require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
                     require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
 
-                    val viewDefinition = Json.decodeFromJsonElement<ViewDefinition>(viewDefJson)
 
-                    val inputStream = executeViewDefinition(viewDefinition, outputFormat)
+
+                    val uuid = Uuid.random().toString()
+                    val inputStream = executeViewDefinition(
+                        viewDefinition,
+                        outputFormat,
+                        resource.ifEmpty { null },
+                        uuid
+                    )
 
                     call.respond(inputStream)
+
+                    File("output/$uuid").deleteRecursively()
+                    if (File("input/$uuid").exists()) {
+                        File("input/$uuid").deleteRecursively()
+                    }
+
                 }
+                post("/ViewDefinition/\$export") {
+                    require(call.request.headers["Prefer"] == "respond-async") { "'Prefer:' header must be 'respond-async'!" }
+                    val parameters = Json.decodeFromString<Parameters>(call.receiveText())
+                    val viewDefinition = parameters.getAsList("view").associate { it.name to it.valueString } //TODO
+
+
+                    val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
+                    val clientTrackingId = parameters["clientTrackingId"]?.valueString
+
+                    require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
+                    require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
+                    require(parameters["group"] == null) { "Providing group filter not (yet) supported" }
+                    require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
+                    require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
+
+
+                    val uuid = Uuid.random().toString()
+
+                    val job = async(Job()) {
+                        executeViewDefinition(TODO(), outputFormat, TODO(), uuid)
+                    }
+
+                    val location = "__async-status/${uuid}"
+                    call.response.headers.append(HttpHeaders.ContentLocation, location)
+                    call.respondText(
+                        Json.encodeToString(
+                            Parameters(
+                                resourceType = "Parameters",
+                                parameter = listOf(
+                                    Parameter(name = "exportId", valueString = uuid),
+                                    Parameter(name = "clientTrackingId", valueString = clientTrackingId),
+                                    Parameter(name = "location", valueString = location),
+                                    Parameter(name = "status", valueCode = "in-progress"),
+                                ),
+                            )
+                        )
+                    , contentType, HttpStatusCode.Accepted)
+
+                }
+
+                delete ("__async-status/{uuid}") {
+                    val uuid = call.request.pathVariables["uuid"] ?: error("No uuid provided!")
+
+
+
+                }
+
                 //TODO: Add OperationOutcome for all missing routes
             }
         }
     }.start(wait = true)
+}
+
+private fun getViewDefinitionFromParameters(parameters: Parameters): ViewDefinition {
+    require(parameters["viewReference"] == null) { "viewReference is not supported" }
+
+    val viewDefJson =
+        parameters["viewDefinition"]?.resource ?: error("No ViewDefinition resource provided!")
+    val viewDefinition = Json.decodeFromJsonElement<ViewDefinition>(viewDefJson)
+    return viewDefinition
 }
 
 private fun Route.post(string: String, function: () -> Unit) {}
@@ -137,11 +253,20 @@ enum class OutputFormat { Json, Ndjson, Csv, Parquet }
 
 
 @OptIn(ExperimentalUuidApi::class)
-private fun executeViewDefinition(viewDefinition: ViewDefinition, outputFormat: OutputFormat): InputStream {
-    val uuid = Uuid.random().toString()
-
+private fun executeViewDefinition(
+    viewDefinition: ViewDefinition,
+    outputFormat: OutputFormat,
+    resources: List<JsonObject>? = null,
+    uuid: String
+): InputStream {
     val pc = PathlingContext.create()
-    val data = pc.read().ndjson("input/data")
+
+    val data = if (resources == null) {
+        pc.read().ndjson("input/data")
+    } else {
+        writeResourcesAsNdjson(uuid, viewDefinition, resources)
+        pc.read().ndjson("input/$uuid")
+    }
     val result: Dataset<Row?> = data.view(viewDefinition.toFhirView()).execute()
 
     val path = "output/$uuid"
@@ -177,15 +302,32 @@ private fun executeViewDefinition(viewDefinition: ViewDefinition, outputFormat: 
         OutputFormat.Parquet -> {
             result.repartition(1).write().mode(SaveMode.Overwrite).parquet("$path/result.parquet")
             val resultFile = File("output/$uuid").listFiles { _, name -> name.endsWith(".parquet") }.single()
-            println("resultFile = $resultFile")
             resultFile.inputStream()
         }
     }
 
-    File("output/$uuid").deleteRecursively()
+
 
     return resultStream
 
+}
+
+private fun writeResourcesAsNdjson(
+    uuid: String,
+    viewDefinition: ViewDefinition,
+    resources: List<JsonObject>
+) {
+    File("input/$uuid").mkdirs()
+
+    //prevent pathwalking
+    require(viewDefinition.resource matches "[A-Za-z]+".toRegex()) { "invalid ViewDefinition.resource ${viewDefinition.resource}" }
+
+    File("input/$uuid/${viewDefinition.resource}.ndjson").writer().use { writer ->
+        for (resource in resources) {
+            writer.write(resource.toString())
+            writer.write("\n")
+        }
+    }
 }
 
 

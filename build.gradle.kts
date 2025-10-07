@@ -15,6 +15,10 @@ repositories {
 }
 
 dependencies {
+    implementation("io.ktor:ktor-server-core:3.3.0")
+    implementation("io.ktor:ktor-server-host-common:3.3.0")
+    implementation("io.ktor:ktor-server-status-pages:3.3.0")
+    implementation("io.ktor:ktor-server-core:3.3.0")
     testImplementation(kotlin("test"))
 
     implementation("au.csiro.pathling:library-runtime:8.0.2")

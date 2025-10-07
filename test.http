@@ -1,13 +1,14 @@
+# @timeout 600
 POST http://localhost:8000/fhir/ViewDefinition/$run
 Content-Type: application/fhir+json
-Accept: application/octet-stream
+Accept: text/csv
 
 {
   "resourceType": "Parameters",
   "parameter": [
     {
       "name": "viewDefinition",
-      "resource":{
+      "resource": {
         "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
         "select": [
           {
@@ -40,6 +41,101 @@ Accept: application/octet-stream
         "name": "patient_demographics",
         "status": "draft",
         "resource": "Patient"
+      }
+    },
+    {
+      "name": "resources",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "IMI-P0000000041",
+        "meta": {
+          "versionId": "4",
+          "lastUpdated": "2025-03-03T20:29:14.497Z",
+          "source": "mailto:medic@uni-muenster.de",
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient|2024.0.0"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR"
+                }
+              ]
+            },
+            "system": "http://ukmuenster.de/ORBIS/PID",
+            "value": "P0000000041",
+            "assigner": {
+              "identifier": {
+                "system": "http://fhir.de/sid/arge-ik/iknr",
+                "value": "260550131"
+              },
+              "display": "Universitaetsklinikum Muenster"
+            }
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "_family": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                }
+              ]
+            },
+            "_given": [
+              {
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                    "valueCode": "masked"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1959",
+        "deceasedBoolean": false,
+        "address": [
+          {
+            "type": "physical",
+            "_line": [
+              {
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                    "valueCode": "masked"
+                  }
+                ]
+              }
+            ],
+            "_city": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                }
+              ]
+            },
+            "_postalCode": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                }
+              ]
+            },
+            "country": "de"
+          }
+        ]
       }
     }
   ]

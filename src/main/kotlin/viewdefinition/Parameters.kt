@@ -21,5 +21,6 @@ data class Parameter(
     val name: String,
     val resource: JsonObject? = null,
     val valueString: String? = null,
-    val valueCode: String? = null
+    val valueCode: String? = null,
+    val valueUri: String? = null
 )
