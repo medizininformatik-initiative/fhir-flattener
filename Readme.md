@@ -3,6 +3,11 @@
 Prototype of a server in front of [Pathling](https://pathling.csiro.au/)
 for the [SQL-on-FHIR operation definitions](https://build.fhir.org/ig/FHIR/sql-on-fhir-v2/operations.html), until the Pathling server is ready.
 
+## Build an executable .jar file
+`./gradlew shadowJar`, result .jar is in `build/libs`
+
+
+
 ## Usage example
 Just use docker compose to start the service: 
 ```http request

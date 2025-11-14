@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: pathling-goes-mii
+    container_name: fhir-flattener
     volumes:
       - ./input:/app/input
       - ./output:/app/output

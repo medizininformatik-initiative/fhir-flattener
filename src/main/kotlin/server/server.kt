@@ -17,7 +17,7 @@ import kotlinx.serialization.json.*
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SaveMode
-import org.joda.time.LocalDateTime
+import java.time.LocalDateTime
 import toFhirView
 import viewdefinition.Parameter
 import viewdefinition.Parameters
@@ -131,7 +131,7 @@ fun main() {
 
         routing {
             get("/") {
-                call.respondText("Hello from pathling-goes-mii! Please check GET /fhir/metadata or POST /fhir/ViewDefinition/\$run")
+                call.respondText("Hello from fhir-flattener! Please check GET /fhir/metadata or POST /fhir/ViewDefinition/\$run")
             }
             route("/fhir/") {
                 get("/metadata") {
@@ -146,7 +146,6 @@ fun main() {
 
                     val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
 
-
                     val viewDefinition = getViewDefinitionFromParameters(parameters)
 
                     val resource = parameters.getAsList("resources").mapIndexed { idx, it ->
@@ -154,20 +153,16 @@ fun main() {
                     }
                     //require(resource.isEmpty()) { "Providing resources directly not yet supported" }
 
-                    require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
-                    require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
-                    require(parameters["group"] == null) { "Providing group filter not (yet) supported" }
-                    require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
-                    require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
+                    requireNotNull(parameters["source"]) { "Providing source FHIR server URL directly not (yet) supported" }
+                    requireNotNull(parameters["patient"]) { "Providing patient filter not (yet) supported" }
+                    requireNotNull(parameters["group"]) { "Providing group filter not (yet) supported" }
+                    requireNotNull(parameters["_since"]) { "Providing _since filter not (yet) supported" }
+                    requireNotNull(parameters["_limit"]) { "Providing _limit filter not (yet) supported" }
 
 
                     val uuid = Uuid.random().toString()
-                    val inputStream = executeViewDefinition(
-                        viewDefinition,
-                        outputFormat,
-                        resource.ifEmpty { null },
-                        uuid
-                    )
+                    val inputStream =
+                        executeViewDefinition(viewDefinition, outputFormat, resource.ifEmpty { null }, uuid)
 
                     call.respond(inputStream)
 
@@ -199,8 +194,9 @@ fun main() {
                         for ((idx, parameter) in viewDefinitions.withIndex()) {
                             val name = parameter["name"]?.valueString
                             val viewReference = parameter["viewReference"]?.valueReference
-                            val viewResource: ViewDefinition? = parameter["viewResource"]?.resource?.let { Json.decodeFromJsonElement(it) }
-                            if(viewResource != null && viewResource != null) {
+                            val viewResource: ViewDefinition? =
+                                parameter["viewResource"]?.resource?.let { Json.decodeFromJsonElement(it) }
+                            if (viewResource != null && viewReference != null) {
                                 error("Neither viewResource nor viewReference provided for view '$name' (index=$idx) in input parameters")
                             }
                             executeViewDefinition(viewResource!!, outputFormat, TODO(), uuid)
@@ -228,10 +224,15 @@ fun main() {
                     Parameters(
                         resourceType = "Parameters",
                         parameter = listOf(
-                            Parameter(name = "output", part = listOf(
-                                Parameter(name = "name", valueString = "client_provided_name_or_resource_name_or_generated_id"),
-                                Parameter(name = "location", valueString = "/export/uuid/sample_name.part1.parquet"),
-                            )),
+                            Parameter(
+                                name = "output", part = listOf(
+                                    Parameter(
+                                        "name",
+                                        valueString = "client_provided_name_or_resource_name_or_generated_id"
+                                    ),
+                                    Parameter("location", valueString = "/export/uuid/sample_name.part1.parquet"),
+                                )
+                            ),
                         )
                     )
 
@@ -249,10 +250,9 @@ fun main() {
 }
 
 private fun getViewDefinitionFromParameters(parameters: Parameters): ViewDefinition {
-    require(parameters["viewReference"] == null) { "viewReference is not supported" }
+    requireNotNull(parameters["viewReference"]) { "viewReference is not supported" }
 
-    val viewDefJson =
-        parameters["viewDefinition"]?.resource ?: error("No ViewDefinition resource provided!")
+    val viewDefJson = parameters["viewDefinition"]?.resource ?: error("No ViewDefinition resource provided!")
     val viewDefinition = Json.decodeFromJsonElement<ViewDefinition>(viewDefJson)
     return viewDefinition
 }

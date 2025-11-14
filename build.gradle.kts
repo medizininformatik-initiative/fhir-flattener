@@ -14,8 +14,8 @@ repositories {
     mavenCentral()
 }
 
-val ktorVersion = "3.3.1"
-val pathlingVersion = "8.1.0"
+val ktorVersion = "3.3.2"
+val pathlingVersion = "9.0.0"
 
 dependencies {
     implementation("io.ktor:ktor-server-core:$ktorVersion")
@@ -39,7 +39,7 @@ tasks.test {
     useJUnitPlatform()
 }
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 tasks {
@@ -51,5 +51,5 @@ tasks {
 }
 tasks.withType<ShadowJar> {
     isZip64 = true
-    archiveFileName.set("pathling-goes-mii.jar")
+    archiveFileName.set("fhir-flattener.jar")
 }
