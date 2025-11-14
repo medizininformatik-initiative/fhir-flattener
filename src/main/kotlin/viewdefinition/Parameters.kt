@@ -22,5 +22,16 @@ data class Parameter(
     val resource: JsonObject? = null,
     val valueString: String? = null,
     val valueCode: String? = null,
-    val valueUri: String? = null
-)
+    val valueUri: String? = null,
+    val valueReference: JsonObject? = null,
+    val part: List<Parameter>? = null
+) {
+    operator fun get(name: String): Parameter? {
+        return this.part?.find { it.name == name }
+    }
+    fun getAsList(name: String): List<Parameter>? {
+        return this.part?.filter { it.name == name }
+    }
+}
+
+

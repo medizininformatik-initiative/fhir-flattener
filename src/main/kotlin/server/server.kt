@@ -33,7 +33,7 @@ private val capabilityStatement = buildJsonObject {
     put("resourceType", "CapabilityStatement")
     put("status", "active")
     put("date", LocalDateTime.now().toString())
-    put("publisher", "SQL on FHIR")
+    put("publisher", "Johannes Oehm")
     put("kind", "instance")
     put("fhirVersion", "4.0.1")
     put("format", JsonArray(listOf(JsonPrimitive(contentType.toString()))))
@@ -61,7 +61,8 @@ private val capabilityStatement = buildJsonObject {
     )
 }
 
-class FhirException(val severity: FhirSeverity, val code: String, val exception: Throwable? = null): Throwable(exception) {
+class FhirException(val severity: FhirSeverity, val code: String, val exception: Throwable? = null) :
+    Throwable(exception) {
     fun toOperationOutcome(): JsonObject {
         return buildJsonObject {
             put("resourceType", "OperationOutcome")
@@ -69,7 +70,7 @@ class FhirException(val severity: FhirSeverity, val code: String, val exception:
                 addJsonObject {
                     put("severity", severity.toString().lowercase())
                     put("code", code)
-                    put("diagnostics", exception.toString()+"\n\n"+exception?.stackTraceToString())
+                    put("diagnostics", exception.toString() + "\n\n" + exception?.stackTraceToString())
                 }
             }
         }
@@ -93,7 +94,7 @@ fun main() {
         install(StatusPages) {
             exception<FhirException> { call, cause ->
                 call.respondText(contentType, HttpStatusCode.InternalServerError) {
-                        cause.toOperationOutcome().toString()
+                    cause.toOperationOutcome().toString()
                 }
             }
 
@@ -105,7 +106,22 @@ fun main() {
                             addJsonObject {
                                 put("severity", "error")
                                 put("code", "processing")
-                                put("diagnostics", cause.toString()+"\n\n"+cause.stackTraceToString())
+                                put("diagnostics", cause.toString() + "\n\n" + cause.stackTraceToString())
+                            }
+                        }
+                    }.toString()
+                }
+            }
+
+            status(HttpStatusCode.NotFound) {
+                call.respondText(contentType, HttpStatusCode.InternalServerError) {
+                    buildJsonObject {
+                        put("resourceType", "OperationOutcome")
+                        putJsonArray("issue") {
+                            addJsonObject {
+                                put("severity", "error")
+                                put("code", "not-found")
+                                put("diagnostics", "there is no route defined for '${call.request.uri}'!")
                             }
                         }
                     }.toString()
@@ -145,7 +161,6 @@ fun main() {
                     require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
 
 
-
                     val uuid = Uuid.random().toString()
                     val inputStream = executeViewDefinition(
                         viewDefinition,
@@ -165,7 +180,7 @@ fun main() {
                 post("/ViewDefinition/\$export") {
                     require(call.request.headers["Prefer"] == "respond-async") { "'Prefer:' header must be 'respond-async'!" }
                     val parameters = Json.decodeFromString<Parameters>(call.receiveText())
-                    val viewDefinition = parameters.getAsList("view").associate { it.name to it.valueString } //TODO
+                    val viewDefinitions = parameters.getAsList("view")
 
 
                     val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
@@ -181,7 +196,16 @@ fun main() {
                     val uuid = Uuid.random().toString()
 
                     val job = async(Job()) {
-                        executeViewDefinition(TODO(), outputFormat, TODO(), uuid)
+                        for ((idx, parameter) in viewDefinitions.withIndex()) {
+                            val name = parameter["name"]?.valueString
+                            val viewReference = parameter["viewReference"]?.valueReference
+                            val viewResource: ViewDefinition? = parameter["viewResource"]?.resource?.let { Json.decodeFromJsonElement(it) }
+                            if(viewResource != null && viewResource != null) {
+                                error("Neither viewResource nor viewReference provided for view '$name' (index=$idx) in input parameters")
+                            }
+                            executeViewDefinition(viewResource!!, outputFormat, TODO(), uuid)
+                        }
+
                     }
 
                     val location = "__async-status/${uuid}"
@@ -197,19 +221,28 @@ fun main() {
                                     Parameter(name = "status", valueCode = "in-progress"),
                                 ),
                             )
+                        ), contentType, HttpStatusCode.Accepted
+                    )
+
+
+                    Parameters(
+                        resourceType = "Parameters",
+                        parameter = listOf(
+                            Parameter(name = "output", part = listOf(
+                                Parameter(name = "name", valueString = "client_provided_name_or_resource_name_or_generated_id"),
+                                Parameter(name = "location", valueString = "/export/uuid/sample_name.part1.parquet"),
+                            )),
                         )
-                    , contentType, HttpStatusCode.Accepted)
+                    )
 
                 }
 
-                delete ("__async-status/{uuid}") {
+                delete("__async-status/{uuid}") {
                     val uuid = call.request.pathVariables["uuid"] ?: error("No uuid provided!")
 
 
-
                 }
 
-                //TODO: Add OperationOutcome for all missing routes
             }
         }
     }.start(wait = true)
