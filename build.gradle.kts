@@ -15,7 +15,7 @@ repositories {
 }
 
 val ktorVersion = "3.3.2"
-val pathlingVersion = "9.0.0"
+val pathlingVersion = "9.1.0"
 
 dependencies {
     implementation("io.ktor:ktor-server-core:$ktorVersion")

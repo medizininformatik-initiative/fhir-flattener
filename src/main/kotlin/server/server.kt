@@ -11,6 +11,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.routing.post
+import io.ktor.utils.io.core.Input
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.serialization.json.*
@@ -81,7 +82,7 @@ enum class FhirSeverity { FATAL, ERROR, WARNING, INFORMATION, DEBUG }
 
 @OptIn(ExperimentalUuidApi::class)
 fun main() {
-    embeddedServer(Netty, port = 8000) {
+    embeddedServer(Netty, port = System.getenv("PORT")?.toInt() ?: 8000) {
         monitor.subscribe(ApplicationStopping) {
             val tempDir = File("output/")
             if (tempDir.exists()) {
@@ -151,18 +152,18 @@ fun main() {
                     val resource = parameters.getAsList("resources").mapIndexed { idx, it ->
                         it.resource ?: error("No resource provided at $idx!")
                     }
-                    //require(resource.isEmpty()) { "Providing resources directly not yet supported" }
+                    require(resource.isNotEmpty()) { "Resources must be provided directly" }
 
-                    requireNotNull(parameters["source"]) { "Providing source FHIR server URL directly not (yet) supported" }
-                    requireNotNull(parameters["patient"]) { "Providing patient filter not (yet) supported" }
-                    requireNotNull(parameters["group"]) { "Providing group filter not (yet) supported" }
-                    requireNotNull(parameters["_since"]) { "Providing _since filter not (yet) supported" }
-                    requireNotNull(parameters["_limit"]) { "Providing _limit filter not (yet) supported" }
+                    require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
+                    require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
+                    require(parameters["group"] == null) { "Providing group filter not (yet) supported" }
+                    require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
+                    require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
 
 
                     val uuid = Uuid.random().toString()
                     val inputStream =
-                        executeViewDefinition(viewDefinition, outputFormat, resource.ifEmpty { null }, uuid)
+                        executeViewDefinition(viewDefinition, outputFormat, resource, uuid)
 
                     call.respond(inputStream)
 
@@ -250,7 +251,7 @@ fun main() {
 }
 
 private fun getViewDefinitionFromParameters(parameters: Parameters): ViewDefinition {
-    requireNotNull(parameters["viewReference"]) { "viewReference is not supported" }
+    require(parameters["viewReference"] == null) { "viewReference is not supported" }
 
     val viewDefJson = parameters["viewDefinition"]?.resource ?: error("No ViewDefinition resource provided!")
     val viewDefinition = Json.decodeFromJsonElement<ViewDefinition>(viewDefJson)
@@ -289,52 +290,48 @@ enum class OutputFormat { Json, Ndjson, Csv, Parquet }
 private fun executeViewDefinition(
     viewDefinition: ViewDefinition,
     outputFormat: OutputFormat,
-    resources: List<JsonObject>? = null,
+    resources: List<JsonObject>,
     uuid: String
 ): InputStream {
     val pc = PathlingContext.create()
 
-    val data = if (resources == null) {
-        pc.read().ndjson("input/data")
-    } else {
-        writeResourcesAsNdjson(uuid, viewDefinition, resources)
-        pc.read().ndjson("input/$uuid")
-    }
+    writeResourcesAsNdjson(uuid, viewDefinition, resources)
+    val data = pc.read().ndjson("input/$uuid")
+
     val result: Dataset<Row?> = data.view(viewDefinition.toFhirView()).execute()
 
-    val path = "output/$uuid"
+    val outputPath = "output/$uuid"
     val resultStream = when (outputFormat) {
         OutputFormat.Json -> {
-            result.write().mode(SaveMode.Overwrite).json(path)
-            val result: MutableList<InputStream> = File("output/$uuid").listFiles { _, name ->
+            result.write().mode(SaveMode.Overwrite).json(outputPath)
+            val result: MutableList<InputStream> = File(outputPath).listFiles { _, name ->
                 name.endsWith(".json", ignoreCase = true)
             }.map { file -> NewlineToCommaInputStream(file.inputStream()) }.toMutableList()
-            val start = ByteArrayInputStream(byteArrayOf('['.code.toByte()))
-            val end = ByteArrayInputStream(byteArrayOf(']'.code.toByte()))
             result[result.size - 1] = TrimLastByteInputStream(result[result.size - 1])
-            SequenceInputStream(Vector(listOf(start) + result + listOf(end)).elements())
+            SequenceInputStream(listOf(char2InputStream('[')) + result + listOf(char2InputStream(']')))
         }
 
         OutputFormat.Ndjson -> {
-            result.write().mode(SaveMode.Overwrite).json(path)
-            val result = File("output/$uuid").listFiles { _, name ->
+            result.write().mode(SaveMode.Overwrite).json(outputPath)
+            val result = File(outputPath).listFiles { _, name ->
                 name.endsWith(".json", ignoreCase = true)
-            }.asSequence().map { file -> file.inputStream() }
-            SequenceInputStream(Vector(result.toList()).elements())
+            }.map { file -> file.inputStream() }
+            SequenceInputStream(result)
         }
 
         OutputFormat.Csv -> {
-            result.write().mode(SaveMode.Overwrite).csv(path)
+            result.write().mode(SaveMode.Overwrite).csv(outputPath)
 
-            val result = File("output/$uuid").listFiles { _, name ->
+            val result = File(outputPath).listFiles { _, name ->
                 name.endsWith(".csv", ignoreCase = true)
-            }.asSequence().map { file -> file.inputStream() }
-            SequenceInputStream(Vector(result.toList()).elements())
+            }.map { file -> file.inputStream() }
+
+            SequenceInputStream(result)
         }
 
         OutputFormat.Parquet -> {
-            result.repartition(1).write().mode(SaveMode.Overwrite).parquet("$path/result.parquet")
-            val resultFile = File("output/$uuid").listFiles { _, name -> name.endsWith(".parquet") }.single()
+            result.repartition(1).write().mode(SaveMode.Overwrite).parquet("$outputPath/result.parquet")
+            val resultFile = File(outputPath).listFiles { _, name -> name.endsWith(".parquet") }.single()
             resultFile.inputStream()
         }
     }
@@ -345,11 +342,11 @@ private fun executeViewDefinition(
 
 }
 
-private fun writeResourcesAsNdjson(
-    uuid: String,
-    viewDefinition: ViewDefinition,
-    resources: List<JsonObject>
-) {
+private fun char2InputStream(char: Char) = ByteArrayInputStream(byteArrayOf(char.code.toByte()))
+
+private fun SequenceInputStream(list: List<InputStream>) = SequenceInputStream(Collections.enumeration(list))
+
+private fun writeResourcesAsNdjson(uuid: String, viewDefinition: ViewDefinition, resources: List<JsonObject>) {
     File("input/$uuid").mkdirs()
 
     //prevent pathwalking
