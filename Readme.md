@@ -88,10 +88,10 @@ Accept: text/csv  # application/x-ndjson, application/json, or application/octet
       "name": "viewDefinition",
       "resource": {
         "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
-        # put the rest of the view definition here
+        // put the rest of the view definition here
       }
     },
-    # just repeat parameter 'resources' as often as you want to provide the data
+    // just repeat parameter 'resources' as often as you want to provide the data
     { "name": "resources", "resource": { "resourceType": "Patient", "id": "1", "gender": "female"} },
     { "name": "resources", "resource": { "resourceType": "Patient", "id": "2", "gender": "male" } }
   ]
