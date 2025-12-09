@@ -80,6 +80,7 @@ data class Select(
     val select: List<Select> = emptyList(),
     val forEach: String? = null,
     val forEachOrNull: String? = null,
+    val repeat: String? = null,
     val unionAll: List<Select> = emptyList(),
 )
 

@@ -66,3 +66,11 @@ Accept: text/csv
     }
   ]
 }
+
+###
+# @timeout 600
+POST http://localhost:8000/fhir/ViewDefinition/$run
+Content-Type: application/fhir+json
+Accept: text/csv
+
+< src/test/resources/nested-sample.json

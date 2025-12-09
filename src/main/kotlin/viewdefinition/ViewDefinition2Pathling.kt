@@ -4,6 +4,8 @@ import au.csiro.pathling.views.FhirView.column
 import au.csiro.pathling.views.FhirView.forEach
 import au.csiro.pathling.views.FhirView.forEachOrNull
 import au.csiro.pathling.views.FhirView.select
+import au.csiro.pathling.views.FhirViewBuilder
+import au.csiro.pathling.views.SelectClause
 import kotlinx.serialization.json.Json
 import org.hl7.fhir.r4.model.Base64BinaryType
 import org.hl7.fhir.r4.model.BooleanType
@@ -23,6 +25,7 @@ import org.hl7.fhir.r4.model.UnsignedIntType
 import org.hl7.fhir.r4.model.UriType
 import org.hl7.fhir.r4.model.UrlType
 import org.hl7.fhir.r4.model.UuidType
+import viewdefinition.Select
 import viewdefinition.ViewDefinition
 import java.io.File
 
@@ -63,15 +66,7 @@ fun ViewDefinition.toFhirView(): FhirView {
     }
 
     for (item in this.select) {
-        val columns = item.column.map { column(it.name, it.path) }.toTypedArray()
-        tmp = tmp.select(
-            when {
-                item.forEach != null -> forEach(item.forEach, *columns)
-                item.forEachOrNull != null -> forEachOrNull(item.forEachOrNull, *columns)
-                else -> select(*columns)
-            }
-        )
-        //TODO: Handle union etc.
+        tmp.select(buildSelect(item))
     }
 
     for (item in this.where) {
@@ -79,4 +74,18 @@ fun ViewDefinition.toFhirView(): FhirView {
     }
     return tmp.build()
 
+}
+
+
+
+
+private fun buildSelect(item: Select): SelectClause {
+    return SelectClause.builder().apply {
+        column(*item.column.map { column(it.name, it.path) }.toTypedArray())
+        if(item.forEach != null) forEach(item.forEach)
+        if(item.forEachOrNull != null) forEachOrNull(item.forEachOrNull)
+        if(item.repeat != null) repeat(item.repeat)
+        if(item.unionAll.isNotEmpty()) unionAll(*item.unionAll.map { buildSelect(it) }.toTypedArray())
+        if(item.select.isNotEmpty()) select(*item.select.map { buildSelect(it) }.toTypedArray())
+    }.build()
 }
