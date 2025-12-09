@@ -14,7 +14,7 @@ repositories {
     mavenCentral()
 }
 
-val ktorVersion = "3.3.2"
+val ktorVersion = "3.3.3"
 val pathlingVersion = "9.1.0"
 
 dependencies {
@@ -26,12 +26,14 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
 
     testImplementation(kotlin("test"))
+    testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
 
     implementation("au.csiro.pathling:library-runtime:$pathlingVersion")
     implementation("au.csiro.pathling:fhirpath:$pathlingVersion")
     implementation("au.csiro.pathling:terminology:$pathlingVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+
 
 }
 
