@@ -7,7 +7,7 @@ WORKDIR /home/gradle/src
 RUN gradle clean shadowJar --no-daemon
 
 FROM eclipse-temurin:17
-ENV ARTIFACT_NAME=pathling-goes-mii.jar
+ENV ARTIFACT_NAME=fhir-flattener.jar
 
 WORKDIR /app
 COPY --from=temp_build_image /home/gradle/src/build/libs/* .
