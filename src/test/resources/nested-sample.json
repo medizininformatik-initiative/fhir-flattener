@@ -90,10 +90,10 @@
             "system": "https://www.charite.de/fhir/sid/patienten",
             "value": "42285243",
             "assigner": {
-              "display": "Charité – Universitätsmedizin Berlin",
+              "display": "CharitUniversitssmedizin Berlin",
               "identifier": {
                 "system": "https://www.medizininformatik-initiative.de/fhir/core/CodeSystem/core-location-identifier",
-                "value": "Charité"
+                "value": "Chari"
               }
             }
           },

@@ -2,6 +2,7 @@ package server
 
 import au.csiro.pathling.library.PathlingContext
 import io.ktor.http.*
+import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.install
 import io.ktor.server.engine.*
@@ -83,6 +84,14 @@ enum class FhirSeverity { FATAL, ERROR, WARNING, INFORMATION, DEBUG }
 @OptIn(ExperimentalUuidApi::class)
 fun main() {
     embeddedServer(Netty, port = System.getenv("PORT")?.toInt() ?: 8000) {
+        module()
+    }.start(wait = true)
+
+}
+
+@OptIn(ExperimentalUuidApi::class)
+fun Application.module() {
+
         monitor.subscribe(ApplicationStopping) {
             val tempDir = File("output/")
             if (tempDir.exists()) {
@@ -247,7 +256,6 @@ fun main() {
 
             }
         }
-    }.start(wait = true)
 }
 
 private fun getViewDefinitionFromParameters(parameters: Parameters): ViewDefinition {
