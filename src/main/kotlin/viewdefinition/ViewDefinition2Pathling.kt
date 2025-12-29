@@ -1,12 +1,9 @@
+package viewdefinition
+
 import au.csiro.pathling.views.ConstantDeclaration
 import au.csiro.pathling.views.FhirView
 import au.csiro.pathling.views.FhirView.column
-import au.csiro.pathling.views.FhirView.forEach
-import au.csiro.pathling.views.FhirView.forEachOrNull
-import au.csiro.pathling.views.FhirView.select
-import au.csiro.pathling.views.FhirViewBuilder
 import au.csiro.pathling.views.SelectClause
-import kotlinx.serialization.json.Json
 import org.hl7.fhir.r4.model.Base64BinaryType
 import org.hl7.fhir.r4.model.BooleanType
 import org.hl7.fhir.r4.model.CanonicalType
@@ -25,9 +22,6 @@ import org.hl7.fhir.r4.model.UnsignedIntType
 import org.hl7.fhir.r4.model.UriType
 import org.hl7.fhir.r4.model.UrlType
 import org.hl7.fhir.r4.model.UuidType
-import viewdefinition.Select
-import viewdefinition.ViewDefinition
-import java.io.File
 
 
 fun ViewDefinition.toFhirView(): FhirView {
