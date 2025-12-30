@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fhir-flattener</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            font-family: monospace;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        a {
+            color: black;
+            text-decoration: none;
+        }
+
+        a {
+            color: gray;
+            text-decoration: underline;
+        }
+
+        .form-group {
+            margin-bottom: 5px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            font-family: monospace;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .textlike-select {
+            border: none;
+            background: none;
+            font: inherit;
+            padding-right: 1.5em; /* space for arrow */
+            /*appearance: none;*/
+            position: relative;
+        }
+
+        .textlike-select:hover {
+            color: gray;
+            cursor: pointer;
+        }
+
+        #drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            background-color: #fafafa;
+            cursor: pointer;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        #drop-zone.dragover {
+            background-color: #e1f5fe;
+            border-color: #03a9f4;
+        }
+
+        .resource-list {
+            margin-top: 10px;
+            list-style: none;
+            padding: 0;
+        }
+
+        .resource-item {
+            padding: 5px 10px 5px 0;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .resource-item:hover {
+            background: #eee;
+        }
+
+        .resource-item:last-child .final-comma {
+            display: none;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: red;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            width: 100%;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        .btn:hover {
+            background-color: #3d4249;
+        }
+
+        .submit-btn {
+            background-color: #007bff;
+        }
+
+        .submit-btn:hover {
+            background-color: #0056b3;
+        }
+
+        #response-area {
+            margin-top: 20px;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        #view-definition {
+            margin-left: 75px;
+            width: calc(100% - 75px);
+        }
+
+        #datazone {
+            margin-left: 40px;
+        }
+    </style>
+</head>
+<body>
+<h1>fhir-flattener</h1>
+<p>It works, fhir-flattener is up and running. You can test the supported operations using the interface below.</p>
+<div class="container">
+    <h1><strong>GET</strong> /fhir/metadata</h1>
+    <form action="/fhir/metadata">
+        <button class="btn submit-btn" type="submit">Get CapabilityStatement</button>
+    </form>
+</div>
+<div class="container">
+    <h1><strong>POST</strong> /fhir/ViewDefinition/$run</h1>
+    <div class="form-group">
+        <label>Content-Type: </label> application/fhir+json <br/>
+    </div>
+    <div class="form-group">
+        <label for="accept-header">Accept:</label>
+        <select id="accept-header" class="textlike-select">
+            <option value="text/csv">text/csv</option>
+            <option value="application/x-ndjson">application/x-ndjson</option>
+            <option value="application/json">application/json</option>
+            <option value="application/octet-stream">application/octet-stream</option>
+        </select>
+    </div>
+    <div class="form-group">&nbsp;</div>
+
+
+    <div class="form-group">
+        {<br/>
+        <span style="margin-left: 20px"><strong>"resourceType"</strong>: "Parameters",</span><br/>
+        <span style="margin-left: 20px"><strong>"parameter"</strong>: [ </span><br/>
+        <span style="margin-left: 40px">{ </span><br/>
+        <span style="margin-left: 60px"><strong>"name"</strong>: "viewDefinition",</span><br/>
+        <span style="margin-left: 60px"><strong>"resource"</strong>:</span>
+        <textarea id="view-definition" placeholder="Enter your ViewDefinition here">{
+  "resourceType": "http://hl7.org/fhir/uv/sql-on-fhir/StructureDefinition/ViewDefinition",
+  "name": "patient_gender",
+  "resource": "Patient",
+  "select": [
+    { "column": [{ "name": "id", "path": "id" }] },
+    { "column": [{ "name": "gender", "path": "gender" }] }
+  ]
+}</textarea>
+        <span style="margin-left: 40px">},</span><br/>
+        <div id="datazone">
+            <ul id="resource-list" class="resource-list"></ul>
+            <div id="drop-zone">
+                click to open or drag .json files of FHIR resources to flatten here
+            </div>
+            <input type="file" id="file-input" multiple accept=".json,application/json" style="display: none">
+        </div>
+    </div>
+    <span style="margin-left: 20px">]</span><br/>
+    }
+    <br/>
+
+    <button class="btn submit-btn" onclick="submitRequest()">Run ViewDefinition</button>
+    <br/>
+    <div style="margin-top:10px;">
+        <a onclick="copyParameters()" href="javascript:;">Copy Parameters resource</a>
+        <a id="copyResultBtn" onclick="copyResult()" href="javascript:;">Copy result</a>
+        <a id="saveResultBtn" onclick="saveResult()" href="javascript:;">Save result</a>
+    </div>
+    <div id="response-area"></div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const resourceList = document.getElementById('resource-list');
+    const responseArea = document.getElementById('response-area');
+    const copyResultBtn = document.getElementById('copyResultBtn');
+    const saveResultBtn = document.getElementById('saveResultBtn');
+    copyResultBtn.style.display = 'none';
+    saveResultBtn.style.display = 'none';
+
+    // Drag & Drop Handler
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+
+        const files = e.dataTransfer.files;
+        handleFiles(files);
+    });
+
+    // Click Handler
+    const fileInput = document.getElementById('file-input');
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+        // Reset value to allow re-selection of the same file if needed
+        fileInput.value = '';
+    });
+
+
+    function handleFiles(files) {
+        for (const file of files) {
+            if (file.type === "application/json" || file.name.endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const jsonContent = JSON.parse(event.target.result);
+                        addResourceToList(file.name, jsonContent);
+                    } catch (err) {
+                        alert(`Fehler beim Parsen von ${file.name}: Invalid JSON`);
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                alert(`${file.name} ist keine JSON-Datei.`);
+            }
+        }
+    }
+
+    function copyParameters() {
+        const parameters = createParameters();
+        if (parameters) {
+            try {
+                navigator.clipboard.writeText(JSON.stringify(parameters, null, 2))
+                alert("Parameters resource is copied to clipboard!")
+            } catch (err) {
+                console.error("Failed to copy parameters: ", err)
+                alert(`Failed to copy parameters to clipboard! ${err.message}`)
+            }
+        }
+    }
+
+
+    function copyResult() {
+        try {
+            navigator.clipboard.writeText(responseArea.textContent);
+            alert("Result is copied to clipboard!");
+        } catch (err) {
+            console.error("Failed to copy: ", err);
+            alert(`Failed to copy result to clipboard! ${err.message}`);
+        }
+    }
+
+    function saveResult() {
+        let filename, mime;
+
+        switch (responseArea.getAttribute("data-type")) {
+            case "application/octet-stream":
+                filename = "result.parquet";
+                mime = "application/octet-stream";
+                break;
+            case "application/json":
+                filename = "result.json";
+                mime = "application/json;charset=utf-8;";
+                break;
+            case "application/x-ndjson":
+                filename = "result.ndjson";
+                mime = "application/x-ndjson;charset=utf-8;";
+                break;
+            default:
+                filename = "result.csv";
+                mime = "text/csv;charset=utf-8;";
+        }
+
+
+        const blob = new Blob([responseArea.textContent], { type: mime });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.style.display = "none";
+
+        document.body.appendChild(a);
+        a.click();
+
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function addResourceToList(name, json) {
+        const li = document.createElement('li');
+        li.className = 'resource-item';
+        let jsonStr = JSON.stringify(json);
+        li.dataset.json = jsonStr;
+
+        let maxLength = 80 - name.length;
+        let trimmed = jsonStr.length > maxLength ? jsonStr.slice(0, maxLength) + "...}" : jsonStr;
+        trimmed = trimmed.replace(/"resourceType":/g, '<span style="font-style:italic">type:</span>');
+
+        li.innerHTML = `
+            <span><span style="color: gray">/*</span><strong>${name}</strong><span style="color: gray">*/</span>  {"name": "resources", "resource": <span style="color: gray">${trimmed}</span> }<span class="final-comma">,</span> </span> <button class="remove-btn" onclick="removeResource(this)">×</button>
+        `;
+        resourceList.appendChild(li);
+    }
+
+    function removeResource(btn) {
+        btn.parentElement.remove();
+    }
+
+    function createParameters() {
+        let viewDefinition;
+
+        try {
+            viewDefinition = JSON.parse(document.getElementById('view-definition').value);
+        } catch (e) {
+            alert("ViewDefinition is not a valid JSON!");
+            return;
+        }
+
+        const parameters = {
+            resourceType: "Parameters",
+            parameter: [
+                {name: "viewDefinition", resource: viewDefinition}
+            ]
+        };
+
+        const items = document.querySelectorAll('.resource-item');
+        items.forEach(item => {
+            try {
+                const resourceJson = JSON.parse(item.dataset.json);
+                parameters.parameter.push({name: "resources", resource: resourceJson});
+            } catch (e) {
+                console.error(`Error reading a resource `, e);
+                alert(`Error reading a resource: ${e.message}`);
+            }
+        });
+
+        return parameters;
+    }
+
+    async function submitRequest() {
+        responseArea.textContent = 'loading...';
+        responseArea.style.display = 'block';
+        responseArea.style.backgroundColor = '#005';
+        responseArea.setAttribute("data-status", "loading");
+        copyResultBtn.style.display = 'none';
+        saveResultBtn.style.display = 'none';
+
+
+        const acceptHeader = document.getElementById('accept-header').value;
+        responseArea.setAttribute("data-type", acceptHeader);
+
+
+        try {
+            const response = await fetch('fhir/ViewDefinition/$run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/fhir+json', 'Accept': acceptHeader},
+                body: JSON.stringify(createParameters())
+            });
+
+            if (response.ok && acceptHeader === 'application/octet-stream') {
+                const blob = await response.blob()
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "result.parquet";  // desired filename
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+
+                responseArea.setAttribute("data-status", "ok");
+                responseArea.style.display = 'none';
+
+            } else {
+                responseArea.textContent = await response.text();
+                if (!response.ok) {
+                    responseArea.setAttribute("data-status", "error");
+                    responseArea.style.backgroundColor = '#500';
+                } else {
+                    responseArea.setAttribute("data-status", "ok");
+                    responseArea.style.backgroundColor = '#333';
+                    copyResultBtn.style.display = null;
+                    saveResultBtn.style.display = null;
+                }
+            }
+
+
+        } catch (error) {
+            responseArea.setAttribute("data-status", "error");
+            responseArea.textContent = 'Network error: ' + error.message;
+            responseArea.style.backgroundColor = '#500';
+        }
+    }
+</script>
+
+</body>
+</html>

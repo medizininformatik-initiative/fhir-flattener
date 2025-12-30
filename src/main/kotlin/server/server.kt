@@ -42,22 +42,28 @@ private val capabilityStatement = buildJsonObject {
         "rest",
         JsonArray(listOf(buildJsonObject {
             put("mode", "server")
-            put(
-                "operation", JsonArray(
-                    listOf(
-                        buildJsonObject {
-                            put("name", "\$export")
-                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$export")
-                        },
-                        buildJsonObject {
-                            put("name", "\$validate")
-                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$validate")
-                        },
-                        buildJsonObject {
-                            put("name", "\$run")
-                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$run")
-                        }
-                    )))
+            putJsonArray("resource") {
+                addJsonObject {
+                    put("type", "ViewDefinition")
+                    put(
+                        "operation", JsonArray(
+                            listOf(
+//                        buildJsonObject {
+//                            put("name", "\$export")
+//                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$export")
+//                        },
+//                                buildJsonObject {
+//                                    put("name", "\$validate")
+//                                    put("definition", "http://sql-on-fhir.org/OperationDefinition/\$validate")
+//                                },
+                                buildJsonObject {
+                                    put("name", "\$run")
+                                    put("definition", "http://sql-on-fhir.org/OperationDefinition/\$run")
+                                }
+                            )))
+                }
+            }
+
         }))
     )
 }
@@ -147,6 +153,10 @@ fun application(): suspend Application.() -> Unit = {
                 call.respondText(capabilityStatement.toString(), contentType, HttpStatusCode.OK)
             }
             get("/ViewDefinition/{id}/\$run") {
+                val outputFormat = getOutputFormat(call.request.queryParameters["_format"], call.request.accept())
+                call.respondText("Not Implemented!")
+            }
+            post("/ViewDefinition/\$validate") {
                 val outputFormat = getOutputFormat(call.request.queryParameters["_format"], call.request.accept())
                 call.respondText("Not Implemented!")
             }
