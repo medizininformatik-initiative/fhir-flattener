@@ -1,3 +1,5 @@
+package viewdefinition
+
 import au.csiro.pathling.views.ConstantDeclaration
 import au.csiro.pathling.views.FhirView
 import au.csiro.pathling.views.FhirView.column

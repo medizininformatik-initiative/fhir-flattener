@@ -1,0 +1,124 @@
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "viewDefinition",
+      "resource": {
+        "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
+        "id": "EncounterFlat",
+        "fhirVersion": [
+          "4.0"
+        ],
+        "select": [
+          {
+            "column": [
+              {
+                "path": "getResourceKey()",
+                "name": "id"
+              },
+              {
+                "path": "status",
+                "name": "status"
+              },
+              {
+                "path": "subject.getReferenceKey(Patient)",
+                "name": "patient_id"
+              },
+              {
+                "path": "serviceProvider.getReferenceKey(Organization)",
+                "name": "service_org_id"
+              },
+              {
+                "path": "period.start",
+                "name": "period_start"
+              },
+              {
+                "path": "period.end",
+                "name": "period_end"
+              },
+              {
+                "path": "episodeOfCare.getReferenceKey(EpisodeOfCare)",
+                "name": "EpisodeOfCareId"
+              }
+            ]
+          },
+          {
+            "column": [
+              {
+                "path": "system",
+                "name": "type_sys"
+              },
+              {
+                "path": "code",
+                "name": "type_code"
+              }
+            ],
+            "forEachOrNull": "type.coding"
+          },
+          {
+            "column": [
+              {
+                "path": "individual.getReferenceKey(Practitioner)",
+                "name": "practitioner_id"
+              }
+            ],
+            "forEachOrNull": "participant"
+          },
+          {
+            "column": [
+              {
+                "path": "location.getReferenceKey(Location)",
+                "name": "location_id"
+              }
+            ],
+            "forEachOrNull": "location"
+          }
+        ],
+        "name": "encounter_flat",
+        "status": "draft",
+        "resource": "Encounter"
+      }
+    },
+    {
+      "name": "resources",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "example",
+        "status": "in-progress",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "IMP",
+          "display": "inpatient encounter"
+        },
+        "subject": {"reference": "Patient/example"},
+        "serviceProvider": {"reference": "Organization/UKM"},
+        "period": {
+          "start": "2015-02-07T13:28:17-05:00",
+          "end": "2017-01-01T00:00:00.000Z"
+        },
+        "episodeOfCare": [{"reference": "EpisodeOfCare/example"}],
+        "type": [    {"coding" : [{"system" : "http://fhir.de/CodeSystem/Kontaktebene", "code" : "einrichtungskontakt"}]}],
+        "participant": [{"individual": {"reference": "Practitioner/JonDoe"}},{"individual": {"reference": "Practitioner/JaneDoe"}}],
+        "location": [{"location": {"reference": "Location/1"}},{"location": {"reference": "Location/2"}}]
+      }
+    },
+    {
+      "name": "resources",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "example",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "IMP",
+          "display": "inpatient encounter"
+        },
+        "subject": {"reference": "Patient/1234"},
+        "serviceProvider": {"reference": "Organization/UKM"},
+        "type": [{"coding": [{"system": "http://fhir.de/CodeSystem/Kontaktebene", "code": "abteilungskontakt"}]}],
+        "participant": [{"individual": {"reference": "Practitioner/JackJohnson"}},{"individual": {"reference": "Practitioner/JohnJackson"}}]
+      }
+    }
+
+  ]
+}

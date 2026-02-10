@@ -2,9 +2,9 @@ services:
   app:
     build: .
     container_name: fhir-flattener
-    volumes:
-      - ./input:/app/input
-      - ./output:/app/output
+#    volumes:
+#      - ./input:/app/input
+#      - ./output:/app/output
     working_dir: /app
     ports:
       - "8000:8000"

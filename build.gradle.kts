@@ -2,9 +2,9 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.kotlin.dsl.withType
 
 plugins {
-    kotlin("jvm") version "2.2.21"
+    kotlin("jvm") version "2.3.10"
     id("com.gradleup.shadow") version "9.2.2"
-    kotlin("plugin.serialization") version "2.2.21"
+    kotlin("plugin.serialization") version "2.3.10"
 }
 
 group = "ms.uni.imi.medic"
@@ -14,8 +14,8 @@ repositories {
     mavenCentral()
 }
 
-val ktorVersion = "3.3.3"
-val pathlingVersion = "9.1.0"
+val ktorVersion = "3.4.0"
+val pathlingVersion = "9.2.0"
 
 dependencies {
     implementation("io.ktor:ktor-server-core:$ktorVersion")
@@ -24,6 +24,8 @@ dependencies {
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-client-core:${ktorVersion}")
+    implementation("io.ktor:ktor-client-cio:${ktorVersion}")
 
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")

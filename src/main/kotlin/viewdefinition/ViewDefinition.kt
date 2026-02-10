@@ -25,6 +25,7 @@ value class Code(val value: String)
 @Serializable
 data class ViewDefinition(
     val resourceType: String,
+    val id: String? = null,
     val url: Uri? = null,
     val identifier: JsonObject = JsonObject(emptyMap()),
     val name: String? = null,
