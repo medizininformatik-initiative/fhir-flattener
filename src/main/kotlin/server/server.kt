@@ -348,7 +348,7 @@ private fun executeViewDefinition(
 
         OutputFormat.Parquet -> {
             result.repartition(1).write().mode(SaveMode.Overwrite).parquet("$outputPath/result.parquet")
-            val resultFile = File(outputPath).listFiles { _, name -> name.endsWith(".parquet") }.single()
+            val resultFile = File("$outputPath/result.parquet").listFiles { _, name -> name.endsWith(".parquet") }.single()
             resultFile.inputStream()
         }
     }

@@ -3,6 +3,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import server.application
@@ -42,5 +43,32 @@ Encounter/example,in-progress,Patient/example,Organization/UKM,2015-02-07T13:28:
 Encounter/example,finished,Patient/1234,Organization/UKM,,,,http://fhir.de/CodeSystem/Kontaktebene,abteilungskontakt,Practitioner/JackJohnson,
 Encounter/example,finished,Patient/1234,Organization/UKM,,,,http://fhir.de/CodeSystem/Kontaktebene,abteilungskontakt,Practitioner/JohnJackson,"""
         )
+    }
+
+    @Test
+    fun assertNoFormatResultsinError() = testApplication {
+        application {
+            application()()
+        }
+        client = createClient {}
+
+        val listMime = listOf(
+            ContentType.Text.CSV,
+            ContentType.Application.Json,
+            ContentType("application", "x-ndjson"),
+            ContentType.Application.OctetStream
+
+        )
+
+
+        val bodyStr = TestFlattening::class.java.getResource("nested-sample.json")!!.readText()
+        for(mimeType in listMime) {
+            val response = client.post("/fhir/ViewDefinition/\$run") {
+                contentType(ContentType.Application.Json)
+                accept(mimeType)
+                setBody(bodyStr)
+            }
+            assertEquals(response.status, HttpStatusCode.OK)
+        }
     }
 }
