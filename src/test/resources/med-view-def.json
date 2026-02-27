@@ -1,0 +1,60 @@
+{
+  "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
+  "select": [
+    {
+      "select": [
+        {
+          "select": [
+            {
+              "select": [
+                {
+                  "select": [
+                    {
+                      "select": [
+                        {
+                          "column": [
+                            {
+                              "name": "Medication_ingredient_extensionWirkstoffrelation_extensionIngredientreference_value_X_Valuereference_reference",
+                              "path": "$this"
+                            }
+                          ]
+                        }
+                      ],
+                      "forEachOrNull": "reference"
+                    }
+                  ],
+                  "forEachOrNull": "value.ofType(Reference)"
+                }
+              ],
+              "forEachOrNull": "extension.where(url = 'ingredientReference')"
+            },
+            {
+              "select": [
+                {
+                  "select": [
+                    {
+                      "column": [
+                        {
+                          "name": "Medication_ingredient_extensionWirkstoffrelation_extensionIngredienturi_value_X_Valueuri",
+                          "path": "$this",
+                          "type": "uri"
+                        }
+                      ]
+                    }
+                  ],
+                  "forEachOrNull": "value.ofType(uri)"
+                }
+              ],
+              "forEachOrNull": "extension.where(url = 'ingredientUri')"
+            }
+          ],
+          "forEachOrNull": "extension.where(url = 'https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/wirkstoffrelation')"
+        }
+      ],
+      "forEachOrNull": "ingredient"
+    }
+  ],
+  "name": "medication-cds-extension",
+  "status": "draft",
+  "resource": "Medication"
+}

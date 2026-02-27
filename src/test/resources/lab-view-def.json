@@ -1,0 +1,28 @@
+{
+  "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
+  "name": "Labo",
+  "status": "draft",
+  "resource": "Observation",
+  "select": [
+    {
+      "select": [
+        {
+          "select": [
+            {
+              "select": [
+                {
+                  "column": [
+                    {"name": "test", "path": "value"}
+                  ]
+                }
+              ],
+              "forEachOrNull": "value.ofType(Quantity)"
+            }
+          ],
+          "forEachOrNull": "extension.where(url='http://hl7.org/fhir/StructureDefinition/iso21090-PQ-translation')"
+        }
+      ],
+      "forEachOrNull": "value.ofType(Quantity)"
+    }
+  ]
+}
