@@ -6,19 +6,29 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.Json
 import server.application
+import viewdefinition.Parameter
+import viewdefinition.Parameters
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class TestFlattening {
 
-    fun testFlatteningInternal(filename: String, expected: String) = testApplication {
+    fun testFlatteningInternalWithFile(filename: String, expected: String) {
+        val bodyStr = TestFlattening::class.java.getResource(filename)!!.readText()
+        testFlatteningInternalWithString(bodyStr, expected)
+    }
+
+    fun testFlatteningInternalWithString(bodyStr: String, expected: String) = testApplication {
         application {
             application()()
         }
         client = createClient {}
 
-        val bodyStr = TestFlattening::class.java.getResource(filename)!!.readText()
+        println("bodyStr = '$bodyStr'")
+
         val response = client.post("/fhir/ViewDefinition/\$run") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Text.CSV)
@@ -29,12 +39,12 @@ class TestFlattening {
 
     @Test
     fun testFlatteningWithNestedSelect() {
-        testFlatteningInternal("nested-sample.json", "10178")
+        testFlatteningInternalWithFile("nested-sample.json", "10178")
     }
 
     @Test
     fun testFlatteningWithMultipleForeaches() {
-        testFlatteningInternal(
+        testFlatteningInternalWithFile(
             "multiple-foreach-sample.json",
             """Encounter/example,in-progress,Patient/example,Organization/UKM,2015-02-07T13:28:17-05:00,2017-01-01T00:00:00.000Z,EpisodeOfCare/example,http://fhir.de/CodeSystem/Kontaktebene,einrichtungskontakt,Practitioner/JonDoe,Location/1
 Encounter/example,in-progress,Patient/example,Organization/UKM,2015-02-07T13:28:17-05:00,2017-01-01T00:00:00.000Z,EpisodeOfCare/example,http://fhir.de/CodeSystem/Kontaktebene,einrichtungskontakt,Practitioner/JaneDoe,Location/1
@@ -62,7 +72,7 @@ Encounter/example,finished,Patient/1234,Organization/UKM,,,,http://fhir.de/CodeS
 
 
         val bodyStr = TestFlattening::class.java.getResource("nested-sample.json")!!.readText()
-        for(mimeType in listMime) {
+        for (mimeType in listMime) {
             val response = client.post("/fhir/ViewDefinition/\$run") {
                 contentType(ContentType.Application.Json)
                 accept(mimeType)
@@ -70,5 +80,59 @@ Encounter/example,finished,Patient/1234,Organization/UKM,,,,http://fhir.de/CodeS
             }
             assertEquals(response.status, HttpStatusCode.OK)
         }
+    }
+
+    @Test
+    fun testQuantityAndUriExtensions() {
+        fun getInputResources(filename: String) =
+            TestFlattening::class.java.getResource(filename)!!.readText().trim().lines()
+                .map { Json.decodeFromString<JsonObject>(it) }
+
+        fun getViewDefinition(filename: String) =
+            TestFlattening::class.java.getResource(filename)!!.readText().let { Json.decodeFromString<JsonObject>(it) }
+
+        val conditions = getInputResources("input/Condition.ndjson")
+        val medications = getInputResources("input/Medication.ndjson")
+        val observations = getInputResources("input/Observation.ndjson")
+        val patients = getInputResources("input/Patient.ndjson")
+
+        val condViewDef = getViewDefinition("cond-view-def.json")
+        val labViewDef = getViewDefinition("lab-view-def.json")
+        val medViewDef = getViewDefinition("med-view-def.json")
+        val patViewDef = getViewDefinition("pat-view-def.json")
+
+        fun createParametersResource(viewDefinition: JsonObject, resources: List<JsonObject>) =
+            Parameters(
+                resourceType = "Parameters",
+                parameter = listOf(
+                    Parameter(name = "viewDefinition", resource = viewDefinition)
+                ) + resources.map { Parameter(name = "resources", resource = it) }
+            )
+
+        val condParams = createParametersResource(condViewDef, conditions)
+        val medParams = createParametersResource(medViewDef, medications)
+        val labParams = createParametersResource(labViewDef, observations)
+        val patParams = createParametersResource(patViewDef, patients)
+
+        testFlatteningInternalWithString(
+            Json.encodeToString(condParams), """cond-1,summary-system-A,summary-code-1
+cond-1,summary-system-D,summary-code-3-1
+cond-1,summary-system-E,summary-code-3-2"""
+        )
+
+        testFlatteningInternalWithString(
+            Json.encodeToString(medParams), """,
+,
+,#ing_1
+,#ing_2"""
+        )
+
+        testFlatteningInternalWithString(Json.encodeToString(labParams), "17")
+        testFlatteningInternalWithString(
+            Json.encodeToString(patParams),
+            "mii-exa-person-patient-full,2024-02-22,,2024-02-22,2024-02-22,10178"
+        )
+
+
     }
 }

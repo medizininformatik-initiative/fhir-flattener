@@ -1,5 +1,6 @@
 package server
 
+import au.csiro.pathling.config.EncodingConfiguration
 import au.csiro.pathling.library.PathlingContext
 import io.ktor.http.*
 import io.ktor.server.application.Application
@@ -302,6 +303,16 @@ private fun getOutputFormat(_format: String?, acceptHeader: String?): OutputForm
 
 enum class OutputFormat { Json, Ndjson, Csv, Parquet }
 
+//seems to be thread-safe as the underlying SparkSession object is
+private val pc = PathlingContext.builder()
+    .encodingConfiguration(
+        EncodingConfiguration.builder()
+            .enableExtensions(true)
+            .openTypes(
+                setOf("oolean", "code", "date", "dateTime", "decimal", "integer", "string", "Coding", "CodeableConcept",
+                    "Address", "Identifier", "Reference", "Quantity", "uri")
+            ).build()
+    ).build()
 
 @OptIn(ExperimentalUuidApi::class)
 private fun executeViewDefinition(
@@ -310,7 +321,6 @@ private fun executeViewDefinition(
     resources: List<JsonObject>,
     uuid: String
 ): InputStream {
-    val pc = PathlingContext.create()
 
     writeResourcesAsNdjson(uuid, viewDefinition, resources)
     val data = pc.read().ndjson("input/$uuid")
@@ -348,7 +358,8 @@ private fun executeViewDefinition(
 
         OutputFormat.Parquet -> {
             result.repartition(1).write().mode(SaveMode.Overwrite).parquet("$outputPath/result.parquet")
-            val resultFile = File("$outputPath/result.parquet").listFiles { _, name -> name.endsWith(".parquet") }.single()
+            val resultFile =
+                File("$outputPath/result.parquet").listFiles { _, name -> name.endsWith(".parquet") }.single()
             resultFile.inputStream()
         }
     }

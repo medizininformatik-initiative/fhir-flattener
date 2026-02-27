@@ -1,0 +1,58 @@
+{
+  "resourceType": "https://sql-on-fhir.org/ig/StructureDefinition/ViewDefinition",
+  "select": [
+    {
+      "column": [
+        {
+          "path": "Patient.id",
+          "name": "id"
+        },
+        {
+          "path": "Patient.deceasedDateTime",
+          "name": "deceased"
+        }
+      ]
+    },
+    {
+      "column": [
+        {
+          "name": "deceased_boolean",
+          "path": "deceased.ofType(boolean)",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "column": [
+        {
+          "name": "deceasedDateTimeOne",
+          "path": "deceased.ofType(dateTime)"
+        }
+      ]
+    },
+    {
+      "column": [
+        {
+          "name": "deceasedDateTimeTwo",
+          "path": "deceasedDateTime"
+        }
+      ]
+    },
+    {
+      "forEach": "address",
+      "select": [
+        {
+          "column": [
+            {
+              "name": "zip",
+              "path": "postalCode"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "name": "patient_demographics",
+  "status": "draft",
+  "resource": "Patient"
+}
