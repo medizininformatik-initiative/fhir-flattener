@@ -67,7 +67,6 @@ Encounter/example,finished,Patient/1234,Organization/UKM,,,,http://fhir.de/CodeS
             ContentType.Application.Json,
             ContentType("application", "x-ndjson"),
             ContentType.Application.OctetStream
-
         )
 
 
@@ -82,37 +81,27 @@ Encounter/example,finished,Patient/1234,Organization/UKM,,,,http://fhir.de/CodeS
         }
     }
 
+
+    private fun getInputResources(filename: String) = TestFlattening::class.java.getResource(filename)!!.readText()
+        .trim().lines().map { Json.decodeFromString<JsonObject>(it) }
+
+    private fun getViewDefinition(filename: String) = TestFlattening::class.java.getResource(filename)!!.readText()
+        .let { Json.decodeFromString<JsonObject>(it) }
+
+    private fun createParametersResource(viewDefinition: JsonObject, resources: List<JsonObject>) =
+        Parameters(
+            resourceType = "Parameters",
+            parameter = listOf(
+                Parameter(name = "viewDefinition", resource = viewDefinition)
+            ) + resources.map { Parameter(name = "resources", resource = it) }
+        )
+
+
     @Test
     fun testQuantityAndUriExtensions() {
-        fun getInputResources(filename: String) =
-            TestFlattening::class.java.getResource(filename)!!.readText().trim().lines()
-                .map { Json.decodeFromString<JsonObject>(it) }
-
-        fun getViewDefinition(filename: String) =
-            TestFlattening::class.java.getResource(filename)!!.readText().let { Json.decodeFromString<JsonObject>(it) }
-
         val conditions = getInputResources("input/Condition.ndjson")
-        val medications = getInputResources("input/Medication.ndjson")
-        val observations = getInputResources("input/Observation.ndjson")
-        val patients = getInputResources("input/Patient.ndjson")
-
         val condViewDef = getViewDefinition("cond-view-def.json")
-        val labViewDef = getViewDefinition("lab-view-def.json")
-        val medViewDef = getViewDefinition("med-view-def.json")
-        val patViewDef = getViewDefinition("pat-view-def.json")
-
-        fun createParametersResource(viewDefinition: JsonObject, resources: List<JsonObject>) =
-            Parameters(
-                resourceType = "Parameters",
-                parameter = listOf(
-                    Parameter(name = "viewDefinition", resource = viewDefinition)
-                ) + resources.map { Parameter(name = "resources", resource = it) }
-            )
-
         val condParams = createParametersResource(condViewDef, conditions)
-        val medParams = createParametersResource(medViewDef, medications)
-        val labParams = createParametersResource(labViewDef, observations)
-        val patParams = createParametersResource(patViewDef, patients)
 
         testFlatteningInternalWithString(
             Json.encodeToString(condParams), """cond-1,summary-system-A,summary-code-1
@@ -120,16 +109,28 @@ cond-1,summary-system-D,summary-code-3-1
 cond-1,summary-system-E,summary-code-3-2"""
         )
 
+        val medications = getInputResources("input/Medication.ndjson")
+        val medViewDef = getViewDefinition("med-view-def.json")
+        val medParams = createParametersResource(medViewDef, medications)
+
         testFlatteningInternalWithString(
-            Json.encodeToString(medParams), """,
-,
-,#ing_1
-,#ing_2"""
+            Json.encodeToString(medParams), ",\n,\n,#ing_1\n,#ing_2"
         )
 
+
+        val observations = getInputResources("input/Observation.ndjson")
+        val labViewDef = getViewDefinition("lab-view-def.json")
+        val labParams = createParametersResource(labViewDef, observations)
+
         testFlatteningInternalWithString(Json.encodeToString(labParams), "17")
+
+
+        val patients = getInputResources("input/Patient.ndjson")
+        val patViewDef = getViewDefinition("pat-view-def.json")
+        val patParams = Json.encodeToString(createParametersResource(patViewDef, patients))
+
         testFlatteningInternalWithString(
-            Json.encodeToString(patParams),
+            patParams,
             "mii-exa-person-patient-full,2024-02-22,,2024-02-22,2024-02-22,10178"
         )
 
