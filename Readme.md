@@ -74,6 +74,11 @@ on the data to get the desired table back:
 ## Build an executable .jar file
 `./gradlew shadowJar`, result .jar is in `build/libs`. Run with `java -DPORT=8000 -jar fhir-flattener-all.jar`.
 
+## Config
+Configuration is done via environment variables.
+- `PORT` (default: 8000)
+- `ENABLED_OPEN_TYPES` Comma-separated list of datatypes that internally will be encoded as open within Pathling (default: boolean,code,date,dateTime,decimal,integer,string,Coding,CodeableConcept,Address,Identifier,Reference,Quantity,uri)
+
 ## Usage example
 Use `docker compose` or the .jar file to start the service and make an HTTP request like this: 
 ```http request

@@ -58,7 +58,6 @@ fun ViewDefinition.toFhirView(): FhirView {
                     constant.valueUri != null -> UriType(constant.valueUri)
                     constant.valueUrl != null -> UrlType(constant.valueUrl)
                     constant.valueUuid != null -> UuidType(constant.valueUuid)
-
                     constant.valueString != null -> StringType(constant.valueString)
                     else -> error("Value for constant '$constant' not found")
                 }

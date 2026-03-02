@@ -303,15 +303,22 @@ private fun getOutputFormat(_format: String?, acceptHeader: String?): OutputForm
 
 enum class OutputFormat { Json, Ndjson, Csv, Parquet }
 
+/**
+ * The list of types that are encoded within open types, such as extensions. This default list was
+ * taken from the data types that are common to extensions found in widely-used IGs, such as the
+ * US and AU base profiles. In general, you will get the best query performance by encoding your
+ * data with the shortest possible list.
+ */
+private val openTypes = (System.getenv("ENABLED_OPEN_TYPES")?.split(",")?.map { it.trim() }?.toSet() ?: setOf("oolean", "code", "date", "dateTime", "decimal", "integer", "string", "Coding", "CodeableConcept",
+    "Address", "Identifier", "Reference", "Quantity"))
+
+
 //seems to be thread-safe as the underlying SparkSession object is
 private val pc = PathlingContext.builder()
     .encodingConfiguration(
         EncodingConfiguration.builder()
             .enableExtensions(true)
-            .openTypes(
-                setOf("oolean", "code", "date", "dateTime", "decimal", "integer", "string", "Coding", "CodeableConcept",
-                    "Address", "Identifier", "Reference", "Quantity", "uri")
-            ).build()
+            .openTypes(openTypes).build()
     ).build()
 
 @OptIn(ExperimentalUuidApi::class)
