@@ -340,7 +340,7 @@ private fun executeViewDefinition(
             result.write().mode(SaveMode.Overwrite).json(outputPath)
             val result: MutableList<InputStream> = File(outputPath).listFiles { _, name ->
                 name.endsWith(".json", ignoreCase = true)
-            }.map { file -> NewlineToCommaInputStream(file.inputStream()) }.toMutableList()
+            }.sorted().map { file -> NewlineToCommaInputStream(file.inputStream()) }.toMutableList()
             result[result.size - 1] = TrimLastByteInputStream(result[result.size - 1])
             SequenceInputStream(listOf(char2InputStream('[')) + result + listOf(char2InputStream(']')))
         }
@@ -349,16 +349,18 @@ private fun executeViewDefinition(
             result.write().mode(SaveMode.Overwrite).json(outputPath)
             val result = File(outputPath).listFiles { _, name ->
                 name.endsWith(".json", ignoreCase = true)
-            }.map { file -> file.inputStream() }
+            }.sorted().map { it.inputStream() }
             SequenceInputStream(result)
         }
 
         OutputFormat.Csv -> {
-            result.write().mode(SaveMode.Overwrite).csv(outputPath)
+            result.write().mode(SaveMode.Overwrite)
+                .option("escape", "\"")
+                .csv(outputPath)
 
             val result = File(outputPath).listFiles { _, name ->
                 name.endsWith(".csv", ignoreCase = true)
-            }.map { file -> file.inputStream() }
+            }.sorted().map { it.inputStream() }
 
             SequenceInputStream(result)
         }

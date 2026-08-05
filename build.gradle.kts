@@ -2,9 +2,9 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.kotlin.dsl.withType
 
 plugins {
-    kotlin("jvm") version "2.3.10"
-    id("com.gradleup.shadow") version "9.2.2"
-    kotlin("plugin.serialization") version "2.3.10"
+    kotlin("jvm") version "2.3.21"
+    id("com.gradleup.shadow") version "9.4.1"
+    kotlin("plugin.serialization") version "2.3.21"
 }
 
 group = "ms.uni.imi.medic"
@@ -14,7 +14,7 @@ repositories {
     mavenCentral()
 }
 
-val ktorVersion = "3.4.0"
+val ktorVersion = "3.5.0"
 val pathlingVersion = "9.4.0"
 
 dependencies {
@@ -34,7 +34,7 @@ dependencies {
     implementation("au.csiro.pathling:fhirpath:$pathlingVersion")
     implementation("au.csiro.pathling:terminology:$pathlingVersion")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
 
 }

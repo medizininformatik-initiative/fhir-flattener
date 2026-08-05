@@ -1,0 +1,38 @@
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "viewDefinition",
+      "resource": {
+        "name": "quotes",
+        "resource": "Patient",
+        "resourceType": "ViewDefinition",
+        "select": [
+          {
+            "column": [
+              {"name": "given", "path": "name.given[0]"},
+              {"name": "family", "path": "name.family"},
+              {"name": "prefix", "path": "name.prefix"},
+              {"name": "suffix", "path": "name.suffix"},
+              {"name": "text", "path": "name.text"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "resources",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "mii-exa-person-patient-full",
+        "name": [{
+          "given": ["Name is \"real\""],
+          "family": "a, b",
+          "prefix": "back\\slash",
+          "suffix": "",
+          "text": "\""
+        }]
+      }
+    }
+  ]
+}
