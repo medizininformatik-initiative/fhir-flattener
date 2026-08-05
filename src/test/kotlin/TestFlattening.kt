@@ -136,4 +136,14 @@ cond-1,summary-system-E,summary-code-3-2"""
 
 
     }
+
+
+    @Test
+    fun testFlatteningWithRfc4180Escaping() {
+        testFlatteningInternalWithFile(
+            "hostile-text.json",
+            "\"Name is \"\"real\"\"\",\"a, b\",back\\slash,,\"\"\"\""
+        )
+    }
+
 }
