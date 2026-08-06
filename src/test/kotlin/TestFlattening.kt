@@ -8,9 +8,11 @@ import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.Json
+import org.junit.jupiter.api.Assertions.assertTrue
 import server.application
 import viewdefinition.Parameter
 import viewdefinition.Parameters
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -144,6 +146,19 @@ cond-1,summary-system-E,summary-code-3-2"""
             "hostile-text.json",
             "\"Name is \"\"real\"\"\",\"a, b\",back\\slash,,\"\"\"\""
         )
+    }
+
+    @Test
+    fun testCleanupAfterException() {
+        val result = runCatching {
+            testFlatteningInternalWithFile("exception.json", "irrelevant, just throw exception")
+        }
+
+        assertTrue(result.isFailure)
+        println(result.exceptionOrNull())
+
+       assertTrue(File("input/").listFiles().isNullOrEmpty())
+       assertTrue(File("output/").listFiles().isNullOrEmpty())
     }
 
 }

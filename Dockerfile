@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM gradle:8.14-jdk21 AS temp_build_image
+FROM gradle:9.6.1-jdk21 AS temp_build_image
 
 COPY --chown=gradle:gradle . /home/gradle/src/
 WORKDIR /home/gradle/src

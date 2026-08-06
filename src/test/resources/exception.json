@@ -1,0 +1,30 @@
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "viewDefinition",
+      "resource": {
+        "name": "quotes",
+        "resource": "Patient",
+        "resourceType": "ViewDefinition",
+        "select": [
+          {
+            "column": [
+              {"name": "family", "path": "name.where("}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "resources",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "1",
+        "name": [{
+          "family": "Name is \"real\""
+        }]
+      }
+    }
+  ]
+}
