@@ -77,16 +77,13 @@ fun ViewDefinition.toFhirView(): FhirView {
 
 }
 
-
-
-
 private fun buildSelect(item: Select): SelectClause {
     return SelectClause.builder().apply {
-        column(*item.column.map { column(it.name, it.path) }.toTypedArray())
-        if(item.forEach != null) forEach(item.forEach)
-        if(item.forEachOrNull != null) forEachOrNull(item.forEachOrNull)
-        if(item.repeat != null) repeat(item.repeat)
-        if(item.unionAll.isNotEmpty()) unionAll(*item.unionAll.map { buildSelect(it) }.toTypedArray())
-        if(item.select.isNotEmpty()) select(*item.select.map { buildSelect(it) }.toTypedArray())
+        column(*item.column.map { column(it.name!!, it.path!!) }.toTypedArray())
+        if (item.forEach != null) forEach(item.forEach)
+        if (item.forEachOrNull != null) forEachOrNull(item.forEachOrNull)
+        if (item.repeat != null) repeat(item.repeat)
+        if (item.unionAll.isNotEmpty()) unionAll(*item.unionAll.map { buildSelect(it) }.toTypedArray())
+        if (item.select.isNotEmpty()) select(*item.select.map { buildSelect(it) }.toTypedArray())
     }.build()
 }

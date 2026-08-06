@@ -181,14 +181,17 @@ fun application(): suspend Application.() -> Unit = {
 
 
                 val uuid = Uuid.random().toString()
-                val inputStream =
-                    executeViewDefinition(viewDefinition, outputFormat, resource, uuid)
+                try {
+                    val inputStream = executeViewDefinition(viewDefinition, outputFormat, resource, uuid)
+                    call.respond(inputStream)
+                } finally {
+                    if (File("output/$uuid").exists()) {
+                        File("output/$uuid").deleteRecursively()
+                    }
+                    if (File("input/$uuid").exists()) {
+                        File("input/$uuid").deleteRecursively()
+                    }
 
-                call.respond(inputStream)
-
-                File("output/$uuid").deleteRecursively()
-                if (File("input/$uuid").exists()) {
-                    File("input/$uuid").deleteRecursively()
                 }
 
             }
@@ -309,8 +312,11 @@ enum class OutputFormat { Json, Ndjson, Csv, Parquet }
  * US and AU base profiles. In general, you will get the best query performance by encoding your
  * data with the shortest possible list.
  */
-private val openTypes = (System.getenv("ENABLED_OPEN_TYPES")?.split(",")?.map { it.trim() }?.toSet() ?: setOf("boolean", "code", "date", "dateTime", "decimal", "integer", "string", "Coding", "CodeableConcept",
-    "Address", "Identifier", "Reference", "Quantity"))
+private val openTypes = (System.getenv("ENABLED_OPEN_TYPES")?.split(",")?.map { it.trim() }?.toSet()
+    ?: setOf(
+        "boolean", "code", "date", "dateTime", "decimal", "integer", "string", "uri", "Coding", "CodeableConcept",
+        "Address", "Identifier", "Reference", "Quantity"
+    ))
 
 
 //seems to be thread-safe as the underlying SparkSession object is

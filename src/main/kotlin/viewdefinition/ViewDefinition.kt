@@ -43,32 +43,26 @@ data class ViewDefinition(
     val constant: List<Constant> = emptyList(),
     val select: List<Select> = emptyList(),
     val where: List<Where> = emptyList(),
-    )
+)
 
 @Serializable
-
 data class Constant(
     val name: String,
     val valueBase64Binary: ByteArray? = null,
     val valueBoolean: Boolean? = null,
     val valueCanonical: String? = null,
     val valueCode: Code? = null,
-    @Serializable(with = DateSerializer::class)
-    val valueDate: LocalDate? = null,
-    @Serializable(with = DateTimeSerializer::class)
-    val valueDateTime: LocalDateTime? = null,
-    @Serializable(with = BigDecimalSerializer::class)
-    val valueDecimal: BigDecimal? = null,
+    @Serializable(with = DateSerializer::class) val valueDate: LocalDate? = null,
+    @Serializable(with = DateTimeSerializer::class) val valueDateTime: LocalDateTime? = null,
+    @Serializable(with = BigDecimalSerializer::class) val valueDecimal: BigDecimal? = null,
     val valueId: String? = null,
-    @Serializable(with = InstantSerializer::class)
-    val valueInstant: Instant? = null,
+    @Serializable(with = InstantSerializer::class) val valueInstant: Instant? = null,
     val valueInteger: Int? = null,
     val valueInteger64: Long? = null,
     val valueOid: String? = null,
     val valueString: String? = null,
     val valuePositiveInt: UInt? = null,
-    @Serializable(with = TimeSerializer::class)
-    val valueTime: LocalTime? = null,
+    @Serializable(with = TimeSerializer::class) val valueTime: LocalTime? = null,
     val valueUnsignedInt: UInt? = null,
     val valueUri: String? = null,
     val valueUrl: String? = null,
@@ -94,6 +88,7 @@ data class Column(
     val type: Uri? = null,
     val tag: List<Tag>? = emptyList(),
 )
+
 @Serializable
 data class Tag(
     val name: String? = null,
@@ -121,6 +116,7 @@ object DateSerializer : KSerializer<LocalDate> {
         return LocalDate.parse(decoder.decodeString(), formatter)
     }
 }
+
 @Serializer(forClass = LocalDateTime::class)
 object DateTimeSerializer : KSerializer<LocalDateTime> {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
@@ -133,6 +129,7 @@ object DateTimeSerializer : KSerializer<LocalDateTime> {
         return LocalDateTime.parse(decoder.decodeString(), formatter)
     }
 }
+
 @Serializer(forClass = Instant::class)
 object InstantSerializer : KSerializer<java.time.Instant> {
 
