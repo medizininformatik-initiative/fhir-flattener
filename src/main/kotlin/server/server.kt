@@ -7,6 +7,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.server.application.install
 import io.ktor.server.engine.*
+import io.ktor.server.http.content.staticResources
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.*
@@ -145,10 +146,6 @@ fun application(): suspend Application.() -> Unit = {
     }
 
     routing {
-        get("/") {
-            val text = File("src/main/resources/server/main.html").readText()
-            call.respondText(text, ContentType.Text.Html, HttpStatusCode.OK)
-        }
         route("/fhir/") {
             get("/metadata") {
                 call.respondText(capabilityStatement.toString(), contentType, HttpStatusCode.OK)
@@ -266,8 +263,8 @@ fun application(): suspend Application.() -> Unit = {
 
 
             }
-
         }
+        staticResources("/", "server", index = "main.html")
     }
 }
 
