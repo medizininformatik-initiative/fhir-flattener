@@ -39,6 +39,8 @@ dependencies {
     implementation("au.csiro.pathling:terminology:$pathlingVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    // streaming parser for the $run body; same version as the jackson-bom that Pathling brings in
+    implementation("com.fasterxml.jackson.core:jackson-core:2.21.1")
 
 
 }
