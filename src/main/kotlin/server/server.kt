@@ -14,8 +14,10 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.routing.post
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
@@ -26,6 +28,7 @@ import viewdefinition.Parameters
 import viewdefinition.ViewDefinition
 import viewdefinition.toFhirView
 import java.io.*
+import java.nio.file.Files
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -159,27 +162,29 @@ fun application(): suspend Application.() -> Unit = {
                 call.respondText("Not Implemented!")
             }
             post("/ViewDefinition/\$run") {
-                val parameters = Json.decodeFromString<Parameters>(call.receiveText())
-
-                val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
-
-                val viewDefinition = getViewDefinitionFromParameters(parameters)
-
-                val resource = parameters.getAsList("resources").mapIndexed { idx, it ->
-                    it.resource ?: error("No resource provided at $idx!")
-                }
-                require(resource.isNotEmpty()) { "Resources must be provided directly" }
-
-                require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
-                require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
-                require(parameters["group"] == null) { "Providing group filter not (yet) supported" }
-                require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
-                require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
-
-
                 val uuid = Uuid.random().toString()
                 try {
-                    val inputStream = executeViewDefinition(viewDefinition, outputFormat, resource, uuid)
+                    // resources go straight to disk, so the body never has to fit into memory as a whole
+                    val (parameters, resourceCount) = withContext(Dispatchers.IO) {
+                        val charset = call.request.contentCharset() ?: Charsets.UTF_8
+                        receiveResourcesAsNdjson(call.receiveStream().reader(charset), uuid)
+                    }
+
+                    val outputFormat = getOutputFormat(parameters["_format"]?.valueCode, call.request.accept())
+
+                    val viewDefinition = getViewDefinitionFromParameters(parameters)
+
+                    require(resourceCount > 0) { "Resources must be provided directly" }
+
+                    require(parameters["source"] == null) { "Providing source FHIR server URL directly not (yet) supported" }
+                    require(parameters["patient"] == null) { "Providing patient filter not (yet) supported" }
+                    require(parameters["group"] == null) { "Providing group filter not (yet) supported" }
+                    require(parameters["_since"] == null) { "Providing _since filter not (yet) supported" }
+                    require(parameters["_limit"] == null) { "Providing _limit filter not (yet) supported" }
+
+                    // Pathling takes the resource type from the file name
+                    Files.move(receivedResourcesFile(uuid).toPath(), ndjsonFile(uuid, viewDefinition).toPath())
+                    val inputStream = executeViewDefinitionOnInput(viewDefinition, outputFormat, uuid)
                     call.respond(inputStream)
                 } finally {
                     if (File("output/$uuid").exists()) {
@@ -331,8 +336,16 @@ private fun executeViewDefinition(
     resources: List<JsonObject>,
     uuid: String
 ): InputStream {
-
     writeResourcesAsNdjson(uuid, viewDefinition, resources)
+    return executeViewDefinitionOnInput(viewDefinition, outputFormat, uuid)
+}
+
+/** Runs [viewDefinition] on the NDJSON files already written to `input/$uuid`. */
+private fun executeViewDefinitionOnInput(
+    viewDefinition: ViewDefinition,
+    outputFormat: OutputFormat,
+    uuid: String
+): InputStream {
     val data = pc.read().ndjson("input/$uuid")
 
     val result: Dataset<Row?> = data.view(viewDefinition.toFhirView()).execute()
@@ -389,11 +402,33 @@ private fun SequenceInputStream(list: List<InputStream>) = SequenceInputStream(C
 private fun writeResourcesAsNdjson(uuid: String, viewDefinition: ViewDefinition, resources: List<JsonObject>) {
     File("input/$uuid").mkdirs()
 
+    ndjsonFile(uuid, viewDefinition).writer().use { writer ->
+        for (resource in resources) {
+            writer.write(resource.toString())
+            writer.write("\n")
+        }
+    }
+}
+
+private fun ndjsonFile(uuid: String, viewDefinition: ViewDefinition): File {
     //prevent pathwalking
     require(viewDefinition.resource matches "[A-Za-z]+".toRegex()) { "invalid ViewDefinition.resource ${viewDefinition.resource}" }
 
-    File("input/$uuid/${viewDefinition.resource}.ndjson").writer().use { writer ->
-        for (resource in resources) {
+    return File("input/$uuid/${viewDefinition.resource}.ndjson")
+}
+
+// no .ndjson extension, so Pathling does not pick it up before it is renamed by resource type
+private fun receivedResourcesFile(uuid: String) = File("input/$uuid/resources.part")
+
+/**
+ * Streams the `$run` [Parameters] from [reader], writing the `resources` to [receivedResourcesFile] one per
+ * line as they arrive.
+ */
+private fun receiveResourcesAsNdjson(reader: Reader, uuid: String): RunParameters {
+    File("input/$uuid").mkdirs()
+
+    return receivedResourcesFile(uuid).writer().use { writer ->
+        readRunParameters(reader) { resource ->
             writer.write(resource.toString())
             writer.write("\n")
         }
