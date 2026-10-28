@@ -1,6 +1,7 @@
 import io.ktor.client.request.accept
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -14,6 +15,7 @@ import viewdefinition.Parameter
 import viewdefinition.Parameters
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class TestFlattening {
@@ -23,20 +25,12 @@ class TestFlattening {
         testFlatteningInternalWithString(bodyStr, expected)
     }
 
-    fun testFlatteningInternalWithString(bodyStr: String, expected: String) = testApplication {
-        application {
-            application()()
-        }
-        client = createClient {}
-
+    fun testFlatteningInternalWithString(bodyStr: String, expected: String) {
         println("bodyStr = '$bodyStr'")
 
-        val response = client.post("/fhir/ViewDefinition/\$run") {
-            contentType(ContentType.Application.Json)
-            accept(ContentType.Text.CSV)
-            setBody(bodyStr)
+        postRun(bodyStr) { response ->
+            assertEquals(expected, response.bodyAsText().trim().lines().joinToString("\n"))
         }
-        assertEquals(expected, response.bodyAsText().trim().lines().joinToString("\n"))
     }
 
     @Test
@@ -159,6 +153,63 @@ cond-1,summary-system-E,summary-code-3-2"""
 
        assertTrue(File("input/").listFiles().isNullOrEmpty())
        assertTrue(File("output/").listFiles().isNullOrEmpty())
+    }
+
+    private fun postRun(bodyStr: String, check: suspend (HttpResponse) -> Unit) = testApplication {
+        application {
+            application()()
+        }
+        val response = createClient {}.post("/fhir/ViewDefinition/\$run") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Text.CSV)
+            setBody(bodyStr)
+        }
+        check(response)
+    }
+
+    private fun patientResourceParameters() = getInputResources("input/Patient.ndjson")
+        .joinToString(",") { """{"resource": $it, "name": "resources"}""" }
+
+    private fun patientViewDefinitionParameter() =
+        """{"name": "viewDefinition", "resource": ${getViewDefinition("pat-view-def.json")}}"""
+
+    @Test
+    fun testViewDefinitionAfterResourcesAndNameAfterResource() {
+        testFlatteningInternalWithString(
+            """{"resourceType": "Parameters", "parameter": [${patientResourceParameters()}, ${patientViewDefinitionParameter()}]}""",
+            "mii-exa-person-patient-full,2024-02-22,,2024-02-22,2024-02-22,10178"
+        )
+    }
+
+    @Test
+    fun testMissingResourceIsReported() {
+        val body = """{"resourceType": "Parameters", "parameter": [${patientViewDefinitionParameter()},
+            ${patientResourceParameters()}, {"name": "resources"}]}"""
+        postRun(body) { response ->
+            assertEquals(HttpStatusCode.InternalServerError, response.status)
+            assertContains(response.bodyAsText(), "No resource provided at 1!")
+        }
+        assertTrue(File("input/").listFiles().isNullOrEmpty())
+    }
+
+    @Test
+    fun testEmptyResourcesIsReported() {
+        val body = """{"resourceType": "Parameters", "parameter": [${patientViewDefinitionParameter()}]}"""
+        postRun(body) { response ->
+            assertEquals(HttpStatusCode.InternalServerError, response.status)
+            assertContains(response.bodyAsText(), "Resources must be provided directly")
+        }
+    }
+
+    @Test
+    fun testCleanupAfterTruncatedBody() {
+        val body = """{"resourceType": "Parameters", "parameter": [${patientResourceParameters()}, ${patientResourceParameters()}"""
+        postRun(body) { response ->
+            assertEquals(HttpStatusCode.InternalServerError, response.status)
+            assertContains(response.bodyAsText(), "OperationOutcome")
+        }
+        assertTrue(File("input/").listFiles().isNullOrEmpty())
+        assertTrue(File("output/").listFiles().isNullOrEmpty())
     }
 
 }
