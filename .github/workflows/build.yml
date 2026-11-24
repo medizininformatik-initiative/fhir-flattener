@@ -16,7 +16,7 @@ permissions: read-all
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: write          # Upload artifacts
@@ -70,7 +70,7 @@ jobs:
 
   image-scan:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read           # Download artifacts
@@ -106,7 +106,7 @@ jobs:
     needs:
       - build
       - image-scan
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write  # Push to GitHub Container Registry
       id-token: write  # For Cosign signing
