@@ -22,7 +22,6 @@ import kotlinx.serialization.json.*
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.SaveMode
-import java.time.LocalDateTime
 import viewdefinition.Parameter
 import viewdefinition.Parameters
 import viewdefinition.ViewDefinition
@@ -32,46 +31,6 @@ import java.nio.file.Files
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
-
-private val contentType = ContentType("application", "fhir+json")
-
-private val capabilityStatement = buildJsonObject {
-    put("resourceType", "CapabilityStatement")
-    put("status", "active")
-    put("date", LocalDateTime.now().toString())
-    put("publisher", "Johannes Oehm")
-    put("kind", "instance")
-    put("fhirVersion", "4.0.1")
-    put("format", JsonArray(listOf(JsonPrimitive(contentType.toString()))))
-    put(
-        "rest",
-        JsonArray(listOf(buildJsonObject {
-            put("mode", "server")
-            putJsonArray("resource") {
-                addJsonObject {
-                    put("type", "ViewDefinition")
-                    put(
-                        "operation", JsonArray(
-                            listOf(
-//                        buildJsonObject {
-//                            put("name", "\$export")
-//                            put("definition", "http://sql-on-fhir.org/OperationDefinition/\$export")
-//                        },
-//                                buildJsonObject {
-//                                    put("name", "\$validate")
-//                                    put("definition", "http://sql-on-fhir.org/OperationDefinition/\$validate")
-//                                },
-                                buildJsonObject {
-                                    put("name", "\$run")
-                                    put("definition", "http://sql-on-fhir.org/OperationDefinition/\$run")
-                                }
-                            )))
-                }
-            }
-
-        }))
-    )
-}
 
 class FhirException(val severity: FhirSeverity, val code: String, val exception: Throwable? = null) :
     Throwable(exception) {
