@@ -6,7 +6,7 @@ WORKDIR /home/gradle/src
 
 RUN gradle clean shadowJar --no-daemon
 
-FROM eclipse-temurin:21
+FROM eclipse-temurin:25
 ENV ARTIFACT_NAME=fhir-flattener.jar
 
 WORKDIR /app
