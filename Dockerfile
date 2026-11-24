@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM gradle:9.9.2-jdk21 AS temp_build_image
+FROM gradle:9.9.2-jdk21-ubi10 AS temp_build_image
 
 COPY --chown=gradle:gradle . /home/gradle/src/
 WORKDIR /home/gradle/src
 
 RUN gradle clean shadowJar --no-daemon
 
-FROM eclipse-temurin:25
+FROM eclipse-temurin:21
 ENV ARTIFACT_NAME=fhir-flattener.jar
 
 WORKDIR /app

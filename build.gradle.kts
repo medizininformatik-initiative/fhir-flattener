@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "ms.uni.imi.medic"
-version = "v0.1.0-alpha.10"
+version = "v0.1.0-alpha.11"
 
 kotlin {
     jvmToolchain(21)
