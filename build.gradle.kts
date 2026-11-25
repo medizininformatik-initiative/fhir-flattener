@@ -48,6 +48,13 @@ dependencies {
 
 
 tasks {
+    processResources {
+        val releaseVersion = project.version.toString().removePrefix("v")
+        inputs.property("releaseVersion", releaseVersion)
+        filesMatching("version.properties") {
+            expand("version" to releaseVersion)
+        }
+    }
     test {
         useJUnitPlatform()
         finalizedBy(jacocoTestReport)
