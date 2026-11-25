@@ -19,7 +19,7 @@ repositories {
     mavenCentral()
 }
 
-val ktorVersion = "3.6.1"
+val ktorVersion = "3.6.2"
 val pathlingVersion = "10.0.0"
 
 dependencies {
