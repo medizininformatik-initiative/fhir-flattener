@@ -3,5 +3,13 @@
   "extends": [
     "config:recommended",
     "helpers:pinGitHubActionDigests"
+  ],
+  "packageRules": [
+    {
+      "description": "Spark/Hadoop (via Pathling) does not start on Java 25, keep the runtime on Java 21",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["eclipse-temurin"],
+      "allowedVersions": "<22"
+    }
   ]
 }
