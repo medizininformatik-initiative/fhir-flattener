@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM gradle:9.9.2-jdk21 AS temp_build_image
+# The jar does not depend on the platform, so build it natively on the build host.
+# Some gradle images (for example 9.9.2-jdk21) have no arm64 variant.
+FROM --platform=$BUILDPLATFORM gradle:9.9.2-jdk21 AS temp_build_image
 
 COPY --chown=gradle:gradle . /home/gradle/src/
 WORKDIR /home/gradle/src
