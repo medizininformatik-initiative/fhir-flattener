@@ -8,7 +8,8 @@ WORKDIR /home/gradle/src
 
 RUN gradle clean shadowJar --no-daemon
 
-FROM eclipse-temurin:25
+# Spark/Hadoop (via Pathling) does not start on Java 25: Subject.getSubject is not supported.
+FROM eclipse-temurin:21
 ENV ARTIFACT_NAME=fhir-flattener.jar
 
 WORKDIR /app
